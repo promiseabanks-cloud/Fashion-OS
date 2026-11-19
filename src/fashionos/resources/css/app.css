@@ -1,0 +1,1040 @@
+/**
+ * FashionOS design tokens and application shell styles.
+ *
+ * Everything is scoped to .fashionos-shell so the host WordPress theme cannot
+ * leak typography or spacing into the product, and vice versa. Tokens are the
+ * basis of the design system built out in later phases.
+ */
+
+.fashionos-shell {
+  --fo-ink: #17130f;
+  --fo-ink-soft: #4a4138;
+  --fo-muted: #7a6f63;
+  --fo-bone: #f6f1e9;
+  --fo-surface: #fffdf9;
+  --fo-line: #e4dbcd;
+  --fo-accent: #a8492a;
+  --fo-accent-soft: #f0d9cd;
+  --fo-success: #2f6349;
+  --fo-success-soft: #dbe9df;
+  --fo-danger: #8c2f22;
+  --fo-danger-soft: #f5dcd6;
+  --fo-radius-sm: 6px;
+  --fo-radius-md: 14px;
+  --fo-radius-lg: 24px;
+  --fo-shadow: 0 1px 2px rgba(23, 19, 15, 0.05), 0 12px 32px -24px rgba(23, 19, 15, 0.45);
+  --fo-font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --fo-font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --fo-step-1: 0.75rem;
+  --fo-step-2: 0.875rem;
+  --fo-step-3: 1rem;
+  --fo-step-4: 1.25rem;
+  --fo-step-5: clamp(2rem, 4vw, 3.5rem);
+
+  background: var(--fo-bone);
+  color: var(--fo-ink);
+  font-family: var(--fo-font-sans);
+  font-size: var(--fo-step-3);
+  line-height: 1.55;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.fashionos-shell *,
+.fashionos-shell *::before,
+.fashionos-shell *::after {
+  box-sizing: border-box;
+}
+
+.fashionos-shell a {
+  color: inherit;
+}
+
+.fashionos-shell :focus-visible {
+  outline: 2px solid var(--fo-accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Boot state shown by the PHP template before React mounts. */
+.fashionos-boot {
+  margin: 0 auto;
+  max-width: 32rem;
+  padding: 20vh 1.5rem;
+  text-align: center;
+}
+
+.fashionos-boot__wordmark {
+  font-family: var(--fo-font-display);
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.5rem;
+}
+
+.fashionos-boot__text {
+  color: var(--fo-muted);
+  margin: 0;
+}
+
+.fashionos-shell--hydrated .fashionos-boot {
+  display: none;
+}
+
+/* Skip link */
+.fashionos-skip {
+  background: var(--fo-ink);
+  color: var(--fo-bone);
+  left: 1rem;
+  padding: 0.5rem 1rem;
+  position: absolute;
+  top: -4rem;
+  z-index: 10;
+}
+
+.fashionos-skip:focus {
+  top: 1rem;
+}
+
+/* Top bar */
+.fashionos-topbar {
+  align-items: center;
+  border-bottom: 1px solid var(--fo-line);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem clamp(1rem, 4vw, 2.5rem);
+}
+
+.fashionos-brand {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+}
+
+.fashionos-brand__mark {
+  align-items: center;
+  background: var(--fo-ink);
+  border-radius: 50%;
+  color: var(--fo-bone);
+  display: inline-flex;
+  font-family: var(--fo-font-display);
+  font-size: 1rem;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.fashionos-brand__name {
+  font-family: var(--fo-font-display);
+  font-size: 1.125rem;
+  letter-spacing: 0.01em;
+}
+
+.fashionos-account {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  font-size: var(--fo-step-2);
+}
+
+.fashionos-account__name {
+  color: var(--fo-ink-soft);
+}
+
+.fashionos-account__link {
+  color: var(--fo-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--fo-line);
+}
+
+.fashionos-account__link:hover {
+  color: var(--fo-ink);
+  border-color: var(--fo-ink);
+}
+
+/* Layout */
+.fashionos-body {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  grid-template-columns: 15rem minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 78rem;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 4vw, 2.5rem) 4rem;
+}
+
+.fashionos-nav {
+  border-right: 1px solid var(--fo-line);
+  padding-right: 1.5rem;
+}
+
+.fashionos-nav__heading {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-1);
+  letter-spacing: 0.12em;
+  margin: 0 0 1rem;
+  text-transform: uppercase;
+}
+
+.fashionos-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fashionos-nav__item {
+  align-items: baseline;
+  color: var(--fo-muted);
+  display: flex;
+  font-size: var(--fo-step-2);
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding: 0.45rem 0;
+}
+
+.fashionos-nav__phase {
+  border: 1px solid var(--fo-line);
+  border-radius: 999px;
+  color: var(--fo-muted);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem;
+}
+
+.fashionos-nav__note {
+  border-top: 1px solid var(--fo-line);
+  color: var(--fo-muted);
+  font-size: var(--fo-step-1);
+  line-height: 1.5;
+  margin: 1.25rem 0 0;
+  padding-top: 1rem;
+}
+
+.fashionos-main {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.5rem, 3vw, 2.25rem);
+  min-width: 0;
+}
+
+/* Hero */
+.fashionos-eyebrow {
+  color: var(--fo-accent);
+  font-size: var(--fo-step-1);
+  letter-spacing: 0.16em;
+  margin: 0 0 0.9rem;
+  text-transform: uppercase;
+}
+
+.fashionos-hero__title {
+  font-family: var(--fo-font-display);
+  font-size: var(--fo-step-5);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.fashionos-hero__lead {
+  color: var(--fo-ink-soft);
+  font-size: var(--fo-step-4);
+  line-height: 1.5;
+  margin: 1.25rem 0 0;
+  max-width: 34rem;
+}
+
+/* Panels */
+.fashionos-panel {
+  background: var(--fo-surface);
+  border: 1px solid var(--fo-line);
+  border-radius: var(--fo-radius-lg);
+  box-shadow: var(--fo-shadow);
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.fashionos-panel--quiet {
+  background: transparent;
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.fashionos-panel__header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.fashionos-panel__title {
+  font-family: var(--fo-font-display);
+  font-size: 1.375rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.fashionos-pill {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: var(--fo-step-1);
+  gap: 0.4rem;
+  letter-spacing: 0.02em;
+  padding: 0.25rem 0.7rem;
+}
+
+.fashionos-pill--loading {
+  background: #efe7db;
+  color: var(--fo-ink-soft);
+}
+
+.fashionos-pill--ready {
+  background: var(--fo-success-soft);
+  color: var(--fo-success);
+}
+
+.fashionos-pill--error {
+  background: var(--fo-danger-soft);
+  color: var(--fo-danger);
+}
+
+.fashionos-pill__dot {
+  background: currentColor;
+  border-radius: 50%;
+  height: 0.375rem;
+  width: 0.375rem;
+}
+
+.fashionos-stats {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin: 0;
+}
+
+.fashionos-stat {
+  border-top: 1px solid var(--fo-line);
+  padding-top: 0.9rem;
+}
+
+.fashionos-stat__label {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-1);
+  letter-spacing: 0.08em;
+  margin: 0 0 0.4rem;
+  text-transform: uppercase;
+}
+
+.fashionos-stat__value {
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.fashionos-stat__detail {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-2);
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.fashionos-alert {
+  background: var(--fo-danger-soft);
+  border-radius: var(--fo-radius-sm);
+  color: var(--fo-danger);
+  font-size: var(--fo-step-2);
+  margin: 1.5rem 0 0;
+  padding: 0.75rem 1rem;
+}
+
+/* Roadmap */
+.fashionos-roadmap {
+  display: grid;
+  gap: 0.85rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fashionos-roadmap li {
+  align-items: baseline;
+  border-top: 1px solid var(--fo-line);
+  display: flex;
+  gap: 1rem;
+  padding-top: 0.85rem;
+}
+
+.fashionos-roadmap li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.fashionos-roadmap__phase {
+  color: var(--fo-accent);
+  flex: 0 0 4.5rem;
+  font-size: var(--fo-step-1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fashionos-roadmap__label {
+  color: var(--fo-ink-soft);
+  font-size: var(--fo-step-2);
+}
+
+/* WordPress notices rendered by the plugin */
+.fashionos-notice {
+  background: var(--fo-surface, #fffdf9);
+  border: 1px solid #e4dbcd;
+  border-radius: 12px;
+  color: #17130f;
+  margin: 2rem auto;
+  max-width: 36rem;
+  padding: 1.5rem;
+}
+
+.fashionos-notice__link {
+  color: #a8492a;
+  font-weight: 600;
+}
+
+@media (max-width: 56rem) {
+  .fashionos-body {
+    grid-template-columns: 1fr;
+  }
+
+  .fashionos-nav {
+    border-right: 0;
+    border-bottom: 1px solid var(--fo-line);
+    padding: 0 0 1.25rem;
+  }
+
+  .fashionos-nav__list {
+    display: grid;
+    gap: 0 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  }
+
+  .fashionos-nav__note {
+    display: none;
+  }
+}
+
+@media (max-width: 32rem) {
+  .fashionos-topbar {
+    align-items: flex-start;
+  }
+
+  .fashionos-account {
+    flex-direction: column;
+    gap: 0.25rem;
+    text-align: right;
+  }
+
+  .fashionos-account__name {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fashionos-pill__dot {
+    transition: opacity 200ms ease;
+  }
+
+  .fashionos-pill--loading .fashionos-pill__dot {
+    animation: fashionos-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes fashionos-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Phase 1: studio shell, forms, tables and onboarding
+ * ------------------------------------------------------------------------- */
+
+.fashionos-topbar__tools {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.fashionos-picker {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.fashionos-picker__label {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fashionos-nav__item {
+  background: none;
+  border: 0;
+  border-radius: var(--fo-radius-sm);
+  color: var(--fo-ink-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fo-step-2);
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  width: 100%;
+}
+
+.fashionos-nav__item:hover {
+  background: rgba(168, 73, 42, 0.07);
+  color: var(--fo-ink);
+}
+
+.fashionos-nav__item--active {
+  background: var(--fo-accent-soft);
+  color: var(--fo-accent);
+  font-weight: 600;
+}
+
+.fashionos-nav__create {
+  background: none;
+  border: 0;
+  color: var(--fo-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fo-step-2);
+  margin-top: 1.25rem;
+  padding: 0;
+  text-align: left;
+}
+
+.fashionos-nav__create:hover {
+  text-decoration: underline;
+}
+
+.fashionos-view {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 3vw, 2rem);
+  min-width: 0;
+}
+
+.fashionos-view__title {
+  font-family: var(--fo-font-display);
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.fashionos-view__lead {
+  color: var(--fo-ink-soft);
+  margin: 0.6rem 0 0;
+  max-width: 42rem;
+}
+
+.fashionos-panel__description {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-2);
+  margin: 0.3rem 0 0;
+}
+
+.fashionos-gate {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: clamp(1.5rem, 5vw, 3.5rem) 1.25rem;
+}
+
+.fashionos-gate__card {
+  background: var(--fo-surface);
+  border: 1px solid var(--fo-line);
+  border-radius: var(--fo-radius-lg);
+  box-shadow: var(--fo-shadow);
+  max-width: 36rem;
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  width: 100%;
+}
+
+.fashionos-gate__title {
+  font-family: var(--fo-font-display);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.fashionos-gate__lead {
+  color: var(--fo-ink-soft);
+  margin: 0.75rem 0 0;
+}
+
+.fashionos-gate__actions {
+  margin-top: 1.5rem;
+}
+
+.fashionos-gate .fashionos-panel {
+  box-shadow: none;
+  margin-top: 1.75rem;
+}
+
+.fashionos-chooser {
+  display: grid;
+  gap: 0.6rem;
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+}
+
+.fashionos-chooser__button {
+  background: var(--fo-bone);
+  border: 1px solid var(--fo-line);
+  border-radius: var(--fo-radius-md);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: 0.15rem;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.fashionos-chooser__button:hover {
+  border-color: var(--fo-accent);
+}
+
+.fashionos-chooser__name {
+  font-weight: 600;
+}
+
+.fashionos-chooser__meta {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-2);
+}
+
+.fashionos-form {
+  display: grid;
+  gap: 1.1rem;
+  margin-top: 1.25rem;
+}
+
+.fashionos-form__row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.fashionos-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.fashionos-label {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fashionos-input,
+.fashionos-select {
+  background: var(--fo-bone);
+  border: 1px solid var(--fo-line);
+  border-radius: var(--fo-radius-sm);
+  color: var(--fo-ink);
+  font: inherit;
+  padding: 0.6rem 0.7rem;
+  width: 100%;
+}
+
+.fashionos-select--compact {
+  padding: 0.35rem 0.5rem;
+  width: auto;
+}
+
+.fashionos-input::placeholder {
+  color: #a89c8d;
+}
+
+.fashionos-input:focus-visible,
+.fashionos-select:focus-visible {
+  border-color: var(--fo-accent);
+  outline-offset: 1px;
+}
+
+.fashionos-readonly {
+  color: var(--fo-ink-soft);
+  font-family: var(--fo-font-sans);
+  margin: 0;
+}
+
+.fashionos-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.fashionos-btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fo-step-2);
+  padding: 0.5rem 1.15rem;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.fashionos-btn--primary {
+  background: var(--fo-ink);
+  color: var(--fo-bone);
+}
+
+.fashionos-btn--primary:hover:not(:disabled) {
+  background: var(--fo-accent);
+}
+
+.fashionos-btn--ghost {
+  background: transparent;
+  border-color: var(--fo-line);
+  color: var(--fo-ink-soft);
+}
+
+.fashionos-btn--ghost:hover:not(:disabled) {
+  border-color: var(--fo-ink);
+  color: var(--fo-ink);
+}
+
+.fashionos-btn--danger {
+  background: transparent;
+  border-color: var(--fo-line);
+  color: var(--fo-danger);
+  font-size: var(--fo-step-1);
+  padding: 0.3rem 0.8rem;
+}
+
+.fashionos-btn--danger:hover:not(:disabled) {
+  border-color: var(--fo-danger);
+}
+
+.fashionos-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.fashionos-inline-form {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.fashionos-inline-form .fashionos-field {
+  min-width: 12rem;
+}
+
+.fashionos-table-wrap {
+  margin-top: 0.5rem;
+  overflow-x: auto;
+}
+
+.fashionos-table {
+  border-collapse: collapse;
+  font-size: var(--fo-step-2);
+  width: 100%;
+}
+
+.fashionos-table th {
+  border-bottom: 1px solid var(--fo-line);
+  color: var(--fo-muted);
+  font-size: var(--fo-step-1);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.fashionos-table td {
+  border-bottom: 1px solid var(--fo-line);
+  padding: 0.8rem 0.75rem 0.8rem 0;
+  vertical-align: middle;
+}
+
+.fashionos-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.fashionos-table__strong {
+  display: block;
+  font-weight: 600;
+}
+
+.fashionos-table__meta {
+  color: var(--fo-muted);
+  display: block;
+  font-size: var(--fo-step-1);
+  overflow-wrap: anywhere;
+}
+
+.fashionos-table__muted {
+  color: var(--fo-muted);
+}
+
+.fashionos-table__actions {
+  text-align: right;
+}
+
+.fashionos-tag {
+  background: var(--fo-accent-soft);
+  border-radius: 999px;
+  color: var(--fo-accent);
+  display: inline-flex;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.55rem;
+}
+
+.fashionos-tag--muted {
+  background: #efe7db;
+  color: var(--fo-ink-soft);
+}
+
+.fashionos-empty {
+  border: 1px dashed var(--fo-line);
+  border-radius: var(--fo-radius-md);
+  color: var(--fo-muted);
+  padding: 1.75rem 1rem;
+  text-align: center;
+}
+
+.fashionos-empty__title {
+  color: var(--fo-ink-soft);
+  margin: 0;
+}
+
+.fashionos-empty__detail {
+  font-size: var(--fo-step-2);
+  margin: 0.35rem 0 0;
+}
+
+.fashionos-loading {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-2);
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+.fashionos-success {
+  background: var(--fo-success-soft);
+  border-radius: var(--fo-radius-sm);
+  color: var(--fo-success);
+  font-size: var(--fo-step-2);
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+}
+
+.fashionos-meta {
+  border-top: 1px solid var(--fo-line);
+  color: var(--fo-muted);
+  font-size: var(--fo-step-1);
+  margin: 1.5rem 0 0;
+  padding-top: 0.9rem;
+}
+
+.fashionos-permissions {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fashionos-permissions li {
+  border-top: 1px solid var(--fo-line);
+  color: var(--fo-ink-soft);
+  font-size: var(--fo-step-2);
+  padding-top: 0.5rem;
+}
+
+.fashionos-permissions li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.fashionos-hint {
+  color: var(--fo-muted);
+  font-size: var(--fo-step-1);
+  margin: 1.25rem 0 0;
+}
+
+.fashionos-visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 56rem) {
+  .fashionos-nav__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .fashionos-nav__item {
+    width: auto;
+  }
+
+  .fashionos-nav__create {
+    margin-top: 0.75rem;
+  }
+}
+
+@media (max-width: 32rem) {
+  .fashionos-topbar__tools {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .fashionos-inline-form .fashionos-field {
+    min-width: 100%;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Phase 2: customers and measurements                                        */
+/* -------------------------------------------------------------------------- */
+
+.fashionos-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin: 0 0 1.25rem;
+}
+
+.fashionos-toolbar__group {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.fashionos-toolbar .fashionos-input {
+  min-width: min(22rem, 100%);
+}
+
+.fashionos-textarea {
+  font-family: inherit;
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.fashionos-subsection {
+  border-bottom: 1px solid var(--fo-line);
+  margin: 0 0 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.fashionos-subhead {
+  font-family: var(--fo-font-display);
+  font-size: 1.05rem;
+  margin: 0 0 0.5rem;
+}
+
+.fashionos-note {
+  color: var(--fo-muted);
+  font-size: 0.82rem;
+  margin: 0.4rem 0 0;
+}
+
+.fashionos-note-block {
+  border-top: 1px solid var(--fo-line);
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+}
+
+.fashionos-note-block .fashionos-note {
+  white-space: pre-wrap;
+}
+
+.fashionos-field-grid {
+  display: grid;
+  gap: 0.85rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  margin-bottom: 1rem;
+}
+
+.fashionos-field-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.fashionos-field-row {
+  align-items: center;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1.2fr 1fr auto auto;
+}
+
+.fashionos-check {
+  align-items: center;
+  color: var(--fo-ink-soft);
+  display: flex;
+  font-size: 0.8rem;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.fashionos-pagination {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.fashionos-link-btn {
+  background: none;
+  border: 0;
+  color: var(--fo-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0;
+  text-decoration: underline;
+}
+
+@media (max-width: 56rem) {
+  .fashionos-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .fashionos-pagination {
+    justify-content: space-between;
+  }
+}

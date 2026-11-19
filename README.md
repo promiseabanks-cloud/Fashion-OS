@@ -6,7 +6,7 @@ FashionOS helps a fashion business manage the complete customer and garment life
 
 FashionOS is intended to become a complete operating system for fashion businesses, not merely a measurement book or order tracker.
 
-> **Status:** Foundational specification. Implementation follows the phased roadmap in [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md). The current first task is **Phase 0: Environment and Repository Setup**.
+> **Status:** Phase 2 implemented — workspaces, tenant-scoped roles and permissions, audit trail, customers with preferences, configurable measurement templates, and append-only measurement versions with history comparison, in [`src/fashionos/`](src/fashionos/). The next phase is **Phase 3: Designs, Quotations and Orders**. See [CHANGELOG.md](CHANGELOG.md), the [Phase 1 plan](docs/PHASE_1_PLAN.md) and the [Phase 2 plan](docs/PHASE_2_PLAN.md).
 
 ---
 
@@ -65,8 +65,27 @@ fashionos/
 │   ├── API_REFERENCE.md                         ← REST API architecture
 │   ├── SECURITY.md                              ← security, privacy and data integrity
 │   └── DEVELOPMENT_ROADMAP.md                   ← phased roadmap, testing, definition of done
-└── src/                                         ← implementation code (to come)
+└── src/fashionos/                               ← WordPress plugin + React application
+    ├── fashionos.php                            ← plugin bootstrap
+    ├── app/                                     ← PHP: Core, API, Tenancy, Security, Database
+    ├── resources/                               ← React/TypeScript and CSS
+    ├── templates/                               ← application shell
+    ├── tests/php/                               ← WordPress test-library suites
+    └── public/build/                            ← compiled assets (built before deploy)
 ```
+
+## Getting started
+
+Requirements: Node.js 20+ to build the frontend; WordPress 6.4+ and PHP 8.1+ to run it.
+
+```bash
+cd src/fashionos
+npm install
+npm run dev        # standalone shell preview with a mocked WordPress config
+npm run build      # compiled assets and manifest in public/build/
+```
+
+Full setup, WordPress integration and verification commands: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). Release steps: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Documentation
 
@@ -76,6 +95,10 @@ fashionos/
 - **[Security](docs/SECURITY.md)** — backend, tenant, file and financial security, plus privacy and compliance.
 - **[Development Roadmap](docs/DEVELOPMENT_ROADMAP.md)** — phases and release gates, testing strategy, and the definition of done.
 - **[Architecture Decisions](ARCHITECTURE_DECISIONS.md)** — decisions that require a documented change process.
+- **[Phase 0 Plan](docs/PHASE_0_PLAN.md)** — environment assessment, skeleton, build and migration design, acceptance results.
+- **[Phase 1 Plan](docs/PHASE_1_PLAN.md)** — Phase 0 review, tenancy schema, roles and permissions, API surface and acceptance results.
+- **[Development Guide](docs/DEVELOPMENT.md)** — local setup, commands, coding and testing conventions.
+- **[Deployment Guide](docs/DEPLOYMENT.md)** — packaging, release verification, rollback and hosting checks.
 
 ---
 

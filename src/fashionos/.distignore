@@ -1,0 +1,17 @@
+# Files excluded from the deployable plugin package.
+node_modules
+composer.json
+composer.lock
+package.json
+package-lock.json
+tsconfig.json
+vite.config.ts
+eslint.config.js
+.prettierrc.json
+.prettierignore
+.distignore
+index.html
+dev
+resources/js/**/*.test.ts
+tests
+phpunit.xml.dist

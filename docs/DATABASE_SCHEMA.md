@@ -112,3 +112,170 @@ The exact columns, indexes, nullability and constraints must be defined in migra
 ## Tenant isolation (data-layer rules)
 
 Every tenant-owned record carries a `tenant_id`, and every tenant-owned query, update, delete, file download, background job, report and export is scoped by it. See [`SECURITY.md`](SECURITY.md) for the full isolation and security rules, and Section 7 of the Master Technical Specification.
+
+---
+
+## Implemented tables (migration `0001`)
+
+> Created by `FashionOS\Database\Migrations\Migration0001Tenancy`. Column names are the actual schema; later phases add their own tables through new migrations.
+
+### `{prefix}fos_tenants`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key, auto-increment |
+| `uuid` | `CHAR(36)` | Public identifier, unique |
+| `name` | `VARCHAR(191)` | Display name, max 120 characters in the API |
+| `slug` | `VARCHAR(100)` | Unique, generated from the name |
+| `status` | `VARCHAR(20)` | `active` by default; inactive workspaces grant no permissions |
+| `timezone` | `VARCHAR(64)` | IANA identifier, validated on write |
+| `currency` | `CHAR(3)` | `NGN` by default; supported list lives in `TenantService::CURRENCIES` |
+| `logo_id` | `BIGINT UNSIGNED` | Reserved; `0` when unset |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `slug`, `status`.
+
+### `{prefix}fos_roles`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Owning workspace |
+| `slug` | `VARCHAR(50)` | `owner`, `manager`, `designer`, `tailor`, `finance` |
+| `name` | `VARCHAR(100)` | Display name |
+| `permissions_json` | `LONGTEXT` | JSON array of permission keys; `["*"]` for the owner |
+| `is_system` | `TINYINT(1)` | `1` for the seeded roles |
+| `created_at` | `DATETIME` | UTC |
+
+Indexes: unique `(tenant_id, slug)`, `tenant_id`.
+
+### `{prefix}fos_memberships`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Workspace |
+| `user_id` | `BIGINT UNSIGNED` | WordPress user |
+| `role_id` | `BIGINT UNSIGNED` | Role inside the same workspace |
+| `status` | `VARCHAR(20)` | `active` |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: unique `(tenant_id, user_id)`, `user_id`, `(tenant_id, status)`.
+
+### `{prefix}fos_audit_logs`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | `0` for platform administration |
+| `actor_id` | `BIGINT UNSIGNED` | WordPress user, `0` when not applicable |
+| `action` | `VARCHAR(100)` | `tenant.created`, `membership.role_changed`, `platform.tenants_viewed`, … |
+| `entity_type` | `VARCHAR(50)` | `tenant`, `membership`, `platform` |
+| `entity_id` | `BIGINT UNSIGNED` | Affected record |
+| `metadata_json` | `LONGTEXT` | Non-sensitive context, JSON object |
+| `created_at` | `DATETIME` | UTC |
+
+Indexes: `(tenant_id, created_at)`, `actor_id`, `action`.
+
+No foreign keys are declared. Tenant ownership is enforced in every repository query, because the specification warns that hosting database engines may not enforce constraints identically.
+
+## Implemented tables (migration `0002`)
+
+> Created by `FashionOS\Database\Migrations\Migration0002ClientsMeasurements`. The same migration re-seeds the `is_system` role rows from `Roles::defaults()` so workspaces created in Phase 1 gain the customer and measurement permissions.
+
+### `{prefix}fos_clients`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Owning workspace |
+| `uuid` | `CHAR(36)` | Public identifier, unique |
+| `reference` | `VARCHAR(30)` | Per-workspace reference such as `C-0001`, unique with `tenant_id` |
+| `name` | `VARCHAR(191)` | Required |
+| `email` | `VARCHAR(191)` | Lower-cased; used for duplicate detection among active customers |
+| `phone` | `VARCHAR(40)` | Free text |
+| `notes` | `LONGTEXT` | Internal only; never shown in a customer-facing view |
+| `status` | `VARCHAR(20)` | `active` or `archived`; archiving keeps the record and its history |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, `(tenant_id, status, name)`, `(tenant_id, email)`, `(tenant_id, phone)`.
+
+### `{prefix}fos_client_preferences`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `client_id` | `BIGINT UNSIGNED` | Owning workspace and customer |
+| `preferences_json` | `LONGTEXT` | `{ preferredContact, styleNotes, fitNotes }` |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `(tenant_id, client_id)`.
+
+### `{prefix}fos_measurement_templates`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Owning workspace |
+| `uuid` | `CHAR(36)` | Public identifier, unique |
+| `name` | `VARCHAR(120)` | Display name |
+| `garment_category` | `VARCHAR(60)` | What the template measures |
+| `unit` | `CHAR(2)` | `cm` or `in`, the default capture unit |
+| `schema_json` | `LONGTEXT` | `{ "fields": [{ key, label, hint, required }] }` |
+| `schema_version` | `INT UNSIGNED` | Starts at `1`; incremented when fields change |
+| `status` | `VARCHAR(20)` | `active` or `archived` |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, `(tenant_id, status)`, `(tenant_id, garment_category)`.
+
+### `{prefix}fos_measurement_profiles`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `client_id` | `BIGINT UNSIGNED` | Owning workspace and customer |
+| `template_id` | `BIGINT UNSIGNED` | Template the profile measures against |
+| `uuid` | `CHAR(36)` | Public identifier, unique |
+| `profile_name` | `VARCHAR(120)` | E.g. “Wedding suit” |
+| `garment_category` | `VARCHAR(60)` | Copied from the template at creation |
+| `status` | `VARCHAR(20)` | `active` or `archived` |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, `(tenant_id, client_id)`, `(tenant_id, template_id)`, `(tenant_id, status)`.
+
+### `{prefix}fos_measurement_versions`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key; stable reference for future order garments |
+| `tenant_id`, `profile_id` | `BIGINT UNSIGNED` | Owning workspace and profile |
+| `version_number` | `INT UNSIGNED` | Starts at `1`; unique with `(tenant_id, profile_id)` |
+| `template_id`, `template_version` | `BIGINT UNSIGNED`, `INT UNSIGNED` | Template identity at capture time |
+| `template_snapshot_json` | `LONGTEXT` | Full field definitions, so history stays interpretable after template edits |
+| `unit` | `CHAR(2)` | Unit used for this capture |
+| `taken_at` | `DATETIME` | When the measurements were taken |
+| `taken_by` | `BIGINT UNSIGNED` | WordPress user id |
+| `notes`, `fit_notes` | `TEXT` | Free text |
+| `created_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `(tenant_id, profile_id, version_number)`, `(tenant_id, taken_at)`, `taken_by`. This table is append-only: no repository, service or route updates or deletes a row.
+
+### `{prefix}fos_measurement_values`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `version_id` | `BIGINT UNSIGNED` | Owning workspace and version |
+| `measurement_key` | `VARCHAR(60)` | Template field key |
+| `label` | `VARCHAR(120)` | Label at capture time |
+| `value` | `DECIMAL(10,2)` | Value in `unit` |
+| `unit` | `CHAR(2)` | `cm` or `in` |
+| `sort_order` | `INT UNSIGNED` | Template order |
+
+Indexes: primary key, unique `(tenant_id, version_id, measurement_key)`, `(tenant_id, version_id)`.
+
+`fos_client_files` is intentionally **not** created yet: private uploads are deferred to the portal/design phase (see [PHASE_2_PLAN.md](PHASE_2_PLAN.md)).

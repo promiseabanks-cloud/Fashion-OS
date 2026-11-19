@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build output (built before deployment; see docs/DEPLOYMENT.md)
+src/fashionos/public/build/
+
+# Local environment
+.env
+.env.local
+*.log
+.DS_Store
+
+# Editor / OS noise
+.idea/
+.vscode/
+Thumbs.db

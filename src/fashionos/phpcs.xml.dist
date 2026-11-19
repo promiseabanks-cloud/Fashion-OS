@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<ruleset name="FashionOS">
+	<description>FashionOS PHP coding standards (WordPress Coding Standards).</description>
+
+	<file>.</file>
+
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/public/build/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg value="ps"/>
+	<arg name="colors"/>
+
+	<rule ref="WordPress"/>
+	<rule ref="WordPress-Extra"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<!-- PSR-4 style class filenames (app/Core/Plugin.php) instead of WordPress file naming. -->
+	<rule ref="WordPress.Files.FileName">
+		<exclude name="WordPress.Files.FileName"/>
+	</rule>
+
+	<config name="testVersion" value="8.1-"/>
+	<config name="minimum_supported_wp_version" value="6.4"/>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="fashionos"/>
+				<element value="FASHIONOS"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="fashionos"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>
