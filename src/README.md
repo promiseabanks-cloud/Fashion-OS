@@ -15,6 +15,14 @@ src/fashionos/
 │   ├── Tenancy/       tenant context, resolver, roles, permissions, service
 │   ├── Clients/       customer workflows and response shapes
 │   ├── Measurements/  templates, profiles, versioned measurements
+│   ├── Designs/       design records and measurement references
+│   ├── Quotations/    priced offers and line items
+│   ├── Orders/        orders, garments and activity timeline
+│   ├── Production/    stages, jobs, tasks, dashboard and staff checks
+│   ├── Inventory/     materials, stock ledger and garment allocations
+│   ├── Fittings/      fitting bookings, outcomes and alterations
+│   ├── Quality/       per-garment quality checks
+│   ├── Commerce/      shared money and quantity parsing
 │   ├── Security/      authorization policies
 │   └── Database/      migrator, migrations, tables, repositories
 ├── resources/         React/TypeScript studio shell, services, styles
@@ -24,12 +32,14 @@ src/fashionos/
 └── dev/               development-only preview harness
 ```
 
-Phases 1 and 2 are implemented: workspaces, membership and tenant-scoped roles, permission policies, an audit trail, customer profiles with preferences, configurable measurement templates, measurement profiles, and append-only measurement versions with history comparison. `GET /fashionos/v1/auth/me` bootstraps the session, `X-FashionOS-Workspace` selects a workspace (validated against membership), and every tenant route is scoped and authorized on the server.
+Phases 1–4 are implemented: workspaces, membership and tenant-scoped roles, permission policies, an audit trail, customer profiles with preferences, configurable measurement templates, append-only measurement versions, design records, quotations with server-computed totals, orders whose garments each reference a specific measurement version and carry their own production status and timeline, and per-garment production jobs with a configurable stage workflow, stock-tracked materials with explicit supply sources, fittings, alterations and quality checks. `GET /fashionos/v1/auth/me` bootstraps the session, `X-FashionOS-Workspace` selects a workspace (validated against membership), and every tenant route is scoped and authorized on the server.
 
 - Setup and commands: [`../docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md)
 - Release steps: [`../docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md)
 - Phase 0 plan and results: [`../docs/PHASE_0_PLAN.md`](../docs/PHASE_0_PLAN.md)
 - Phase 1 plan and results: [`../docs/PHASE_1_PLAN.md`](../docs/PHASE_1_PLAN.md)
 - Phase 2 plan and results: [`../docs/PHASE_2_PLAN.md`](../docs/PHASE_2_PLAN.md)
+- Phase 3 plan and results: [`../docs/PHASE_3_PLAN.md`](../docs/PHASE_3_PLAN.md)
+- Phase 4 plan and results: [`../docs/PHASE_4_PLAN.md`](../docs/PHASE_4_PLAN.md)
 
 See Section 5 of the [Master Technical Specification](../FashionOS_Master_Technical_Specification.md) for the intended plugin and React application structure.

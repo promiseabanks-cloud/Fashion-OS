@@ -279,3 +279,258 @@ Indexes: primary key, unique `(tenant_id, profile_id, version_number)`, `(tenant
 Indexes: primary key, unique `(tenant_id, version_id, measurement_key)`, `(tenant_id, version_id)`.
 
 `fos_client_files` is intentionally **not** created yet: private uploads are deferred to the portal/design phase (see [PHASE_2_PLAN.md](PHASE_2_PLAN.md)).
+
+## Implemented tables (migration `0003`)
+
+> Created by `FashionOS\Database\Migrations\Migration0003QuotationsOrders`. The same migration re-seeds the `is_system` role rows from `Roles::defaults()` so existing workspaces gain the design, quotation and order permissions. Optional dates are `CHAR(10)` in `YYYY-MM-DD` form with `''` for “not set”, avoiding empty-string writes to `DATE` columns under MySQL strict mode.
+
+### `{prefix}fos_designs`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Owning workspace |
+| `uuid` | `CHAR(36)` | Public identifier, unique |
+| `reference` | `VARCHAR(30)` | Per-workspace reference such as `D-0001`, unique with `tenant_id` |
+| `client_id` | `BIGINT UNSIGNED` | Customer the design is for; never editable |
+| `measurement_profile_id` | `BIGINT UNSIGNED` | Optional profile the design was drafted against |
+| `measurement_version_id` | `BIGINT UNSIGNED` | Exact measurement version; append-only, so it cannot drift |
+| `title` | `VARCHAR(120)` | Required |
+| `garment_category` | `VARCHAR(60)` | Optional, defaults from the referenced profile |
+| `brief` | `TEXT` | Internal design brief |
+| `status` | `VARCHAR(20)` | `draft`, `approved` or `archived` |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, `(tenant_id, client_id)`, `(tenant_id, status)`, `(tenant_id, measurement_version_id)`.
+
+### `{prefix}fos_quotations`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Owning workspace |
+| `uuid` | `CHAR(36)` | Public identifier, unique |
+| `reference` | `VARCHAR(30)` | Per-workspace reference such as `Q-0001`, unique with `tenant_id` |
+| `client_id`, `design_id` | `BIGINT UNSIGNED` | Customer and optional design |
+| `currency` | `CHAR(3)` | Copied from the workspace at creation |
+| `status` | `VARCHAR(20)` | `draft`, `sent`, `accepted`, `declined` or `expired` |
+| `valid_until` | `CHAR(10)` | Optional `YYYY-MM-DD` |
+| `notes` | `TEXT` | Customer-facing offer notes |
+| `subtotal`, `total` | `DECIMAL(12,2)` | Recomputed from the lines on every write |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, `(tenant_id, client_id)`, `(tenant_id, status)`.
+
+### `{prefix}fos_quotation_items`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `quotation_id` | `BIGINT UNSIGNED` | Owning workspace and quotation |
+| `description` | `VARCHAR(191)` | Required |
+| `quantity` | `INT UNSIGNED` | `1–9999` |
+| `unit_price`, `line_total` | `DECIMAL(12,2)` | `line_total = quantity × unit_price` |
+| `sort_order` | `INT UNSIGNED` | Display order |
+
+Indexes: primary key, `(tenant_id, quotation_id)`.
+
+### `{prefix}fos_orders`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Owning workspace |
+| `uuid` | `CHAR(36)` | Public identifier, unique |
+| `reference` | `VARCHAR(30)` | Per-workspace reference such as `O-0001`, unique with `tenant_id` |
+| `client_id` | `BIGINT UNSIGNED` | Customer |
+| `quotation_id` | `BIGINT UNSIGNED` | Provenance only; the quotation keeps its own status |
+| `currency` | `CHAR(3)` | Quotation currency, or the workspace currency for a direct order |
+| `status` | `VARCHAR(20)` | `draft`, `confirmed`, `in_progress`, `ready`, `delivered` or `cancelled` |
+| `due_date` | `CHAR(10)` | Optional `YYYY-MM-DD` |
+| `notes` | `TEXT` | Internal order notes |
+| `total` | `DECIMAL(12,2)` | Sum of garment line totals at creation |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, `(tenant_id, client_id)`, `(tenant_id, status)`, `(tenant_id, due_date)`.
+
+### `{prefix}fos_order_items`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key; the unit of production |
+| `tenant_id`, `order_id` | `BIGINT UNSIGNED` | Owning workspace and order |
+| `quotation_item_id` | `BIGINT UNSIGNED` | Source line when copied from a quotation |
+| `design_id` | `BIGINT UNSIGNED` | Optional design reference |
+| `measurement_profile_id`, `measurement_version_id` | `BIGINT UNSIGNED` | The exact measurements the garment is cut from |
+| `garment_name` | `VARCHAR(120)` | Required; e.g. “Wedding jacket” |
+| `garment_category` | `VARCHAR(60)` | Copied from the design when one is cited |
+| `quantity` | `INT UNSIGNED` | `1–9999` |
+| `unit_price` | `DECIMAL(12,2)` | Copied from the quotation line or supplied |
+| `status` | `VARCHAR(20)` | `pending`, `cutting`, `sewing`, `fitting`, `ready`, `delivered` or `cancelled` |
+| `notes` | `TEXT` | Garment-specific notes |
+| `sort_order` | `INT UNSIGNED` | Display order |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, order_id)`, `(tenant_id, measurement_version_id)`, `(tenant_id, status)`. References are fixed at creation; only status and notes change afterwards.
+
+### `{prefix}fos_order_events`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `order_id` | `BIGINT UNSIGNED` | Owning workspace and order |
+| `order_item_id` | `BIGINT UNSIGNED` | Garment the event concerns, or `0` for the order |
+| `event_type` | `VARCHAR(40)` | `created`, `item_added`, `status`, `item_status`, `item_updated` or `note` |
+| `message` | `TEXT` | Human-readable entry shown in the order timeline |
+| `actor_id` | `BIGINT UNSIGNED` | WordPress user id |
+| `created_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, order_id, id)`.
+
+## Phase 4 — Production and inventory
+
+Migration `0004` adds nine tables. Optional dates are stored as `CHAR(10)` and optional completion stamps as `CHAR(19)`, both defaulting to `''` rather than `NULL`, so a strict-mode insert never fails on an omitted date. There are still no foreign keys; references are validated in the services and every query starts with `tenant_id`.
+
+### `{prefix}fos_production_stages`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Owning workspace |
+| `name` | `VARCHAR(80)` | Stage label shown in the studio |
+| `slug` | `VARCHAR(80)` | Derived from the name; unique per workspace |
+| `sequence` | `INT UNSIGNED` | Workflow order (default 0) |
+| `is_active` | `TINYINT(1)` | Inactive stages stay in history but accept no new tasks |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `(tenant_id, slug)`, `(tenant_id, is_active, sequence)`.
+
+### `{prefix}fos_production_jobs`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `order_item_id` | `BIGINT UNSIGNED` | Workspace and the one garment the job tracks |
+| `assigned_to` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `status` | `VARCHAR(20)` | `queued`, `in_progress`, `blocked`, `completed`, `cancelled` |
+| `start_date`, `due_date` | `CHAR(10)` | `YYYY-MM-DD` or `''` |
+| `notes` | `TEXT NULL` | Internal notes |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `(tenant_id, order_item_id)` — one job per garment — plus `(tenant_id, status)`, `(tenant_id, assigned_to)` and `(tenant_id, due_date)`.
+
+### `{prefix}fos_production_tasks`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `job_id`, `stage_id` | `BIGINT UNSIGNED` | Workspace, job and workflow stage |
+| `assigned_to` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `status` | `VARCHAR(20)` | `pending`, `in_progress`, `done`, `cancelled` |
+| `due_date` | `CHAR(10)` | `YYYY-MM-DD` or `''` |
+| `completed_at` | `CHAR(19)` | `YYYY-MM-DD HH:MM:SS` or `''` |
+| `notes` | `TEXT NULL` | Task notes |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, job_id)`, `(tenant_id, stage_id)`, `(tenant_id, assigned_to)`, `(tenant_id, status)`.
+
+### `{prefix}fos_materials`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Owning workspace |
+| `name` | `VARCHAR(120)` | Material name |
+| `material_type` | `VARCHAR(30)` | `fabric`, `accessory` or `consumable` |
+| `unit` | `VARCHAR(20)` | `metre`, `yard`, `piece`, `roll`, `spool`, `kilogram` or `litre` |
+| `quantity_on_hand` | `DECIMAL(12,2)` | Current stock; never negative |
+| `reorder_level` | `DECIMAL(12,2)` | Stock at or below this level is flagged low |
+| `unit_cost` | `DECIMAL(12,2)` | Reference cost |
+| `notes` | `TEXT NULL` | Internal notes |
+| `is_active` | `TINYINT(1)` | Archived materials accept no movements |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, material_type)`, `(tenant_id, is_active)`.
+
+### `{prefix}fos_material_allocations`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `order_item_id`, `material_id` | `BIGINT UNSIGNED` | Workspace, garment and material |
+| `quantity` | `DECIMAL(12,2)` | Allocated amount |
+| `source` | `VARCHAR(20)` | `customer_supplied`, `designer_supplied` or `shared_supply` |
+| `notes` | `TEXT NULL` | Allocation notes |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, order_item_id)`, `(tenant_id, material_id)`. Releasing an allocation deletes it and, for designer-supplied stock, returns the quantity through a `return` movement.
+
+### `{prefix}fos_material_movements`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `material_id` | `BIGINT UNSIGNED` | Workspace and material |
+| `movement_type` | `VARCHAR(20)` | `in`, `out`, `adjustment`, plus internal `allocation` and `return` |
+| `quantity` | `DECIMAL(12,2)` | Signed change applied to stock |
+| `reference_type`, `reference_id` | `VARCHAR(20)`, `BIGINT UNSIGNED` | Allocation or garment the movement belongs to |
+| `note` | `VARCHAR(191)` | Short reason |
+| `actor_id` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, material_id, id)`. The ledger is append-only.
+
+### `{prefix}fos_fittings`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `order_item_id` | `BIGINT UNSIGNED` | Workspace and garment |
+| `assigned_to` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `scheduled_at` | `DATETIME` | UTC |
+| `status` | `VARCHAR(20)` | `scheduled`, `completed`, `missed`, `cancelled` |
+| `location` | `VARCHAR(191)` | Place, or `''` |
+| `notes` | `TEXT NULL` | Booking notes |
+| `outcome` | `TEXT NULL` | What was decided at the fitting |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, order_item_id)`, `(tenant_id, scheduled_at)`, `(tenant_id, status)`.
+
+### `{prefix}fos_alterations`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `order_item_id` | `BIGINT UNSIGNED` | Workspace and garment |
+| `fitting_id` | `BIGINT UNSIGNED` | Source fitting, or 0 |
+| `description` | `TEXT` | Required work description |
+| `status` | `VARCHAR(20)` | `open`, `in_progress`, `completed`, `cancelled` |
+| `due_date` | `CHAR(10)` | `YYYY-MM-DD` or `''` |
+| `completed_at` | `CHAR(19)` | `YYYY-MM-DD HH:MM:SS` or `''` |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, order_item_id)`, `(tenant_id, fitting_id)`, `(tenant_id, status)`.
+
+### `{prefix}fos_quality_checks`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `order_item_id` | `BIGINT UNSIGNED` | Workspace and garment |
+| `checked_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `result` | `VARCHAR(20)` | `passed`, `failed` or `needs_rework` |
+| `notes` | `TEXT NULL` | Defect notes |
+| `checked_at` | `DATETIME` | UTC |
+| `created_at` | `DATETIME` | UTC |
+
+Indexes: primary key, `(tenant_id, order_item_id, id)`, `(tenant_id, result)`. Checks are append-only; a failed or rework result also appends an order timeline event.
+
+Migration `0004` also seeds the nine starter stages for every existing workspace and re-seeds the system roles with the eight new `production.*`, `materials.*`, `fittings.*` and `quality.*` permissions.

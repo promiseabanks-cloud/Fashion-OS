@@ -91,6 +91,111 @@ final class Tables {
 	}
 
 	/**
+	 * Design records and their references.
+	 */
+	public static function designs(): string {
+		return self::prefix() . 'fos_designs';
+	}
+
+	/**
+	 * Quotation headers.
+	 */
+	public static function quotations(): string {
+		return self::prefix() . 'fos_quotations';
+	}
+
+	/**
+	 * Priced lines inside a quotation.
+	 */
+	public static function quotation_items(): string {
+		return self::prefix() . 'fos_quotation_items';
+	}
+
+	/**
+	 * Order headers.
+	 */
+	public static function orders(): string {
+		return self::prefix() . 'fos_orders';
+	}
+
+	/**
+	 * Independently tracked garments inside an order.
+	 */
+	public static function order_items(): string {
+		return self::prefix() . 'fos_order_items';
+	}
+
+	/**
+	 * Order activity timeline.
+	 */
+	public static function order_events(): string {
+		return self::prefix() . 'fos_order_events';
+	}
+
+	/**
+	 * Configurable production workflow stages.
+	 */
+	public static function production_stages(): string {
+		return self::prefix() . 'fos_production_stages';
+	}
+
+	/**
+	 * Production jobs, one per garment.
+	 */
+	public static function production_jobs(): string {
+		return self::prefix() . 'fos_production_jobs';
+	}
+
+	/**
+	 * Tasks inside a production job.
+	 */
+	public static function production_tasks(): string {
+		return self::prefix() . 'fos_production_tasks';
+	}
+
+	/**
+	 * Fabric, accessory and consumable catalogue.
+	 */
+	public static function materials(): string {
+		return self::prefix() . 'fos_materials';
+	}
+
+	/**
+	 * Material allocated to a garment.
+	 */
+	public static function material_allocations(): string {
+		return self::prefix() . 'fos_material_allocations';
+	}
+
+	/**
+	 * Stock movement history.
+	 */
+	public static function material_movements(): string {
+		return self::prefix() . 'fos_material_movements';
+	}
+
+	/**
+	 * Fitting appointments, garment level.
+	 */
+	public static function fittings(): string {
+		return self::prefix() . 'fos_fittings';
+	}
+
+	/**
+	 * Alteration records raised from a fitting or a garment.
+	 */
+	public static function alterations(): string {
+		return self::prefix() . 'fos_alterations';
+	}
+
+	/**
+	 * Quality-control records per garment.
+	 */
+	public static function quality_checks(): string {
+		return self::prefix() . 'fos_quality_checks';
+	}
+
+	/**
 	 * Configured WordPress table prefix.
 	 */
 	private static function prefix(): string {

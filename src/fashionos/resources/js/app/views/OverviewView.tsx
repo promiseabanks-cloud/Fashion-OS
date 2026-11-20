@@ -1,5 +1,5 @@
 import type { ActiveTenant } from '../../types';
-import { Panel, formatDate } from '../ui';
+import { Panel, Stat, formatDate } from '../ui';
 
 const PERMISSION_LABELS: Record<string, string> = {
   '*': 'Full access to every workspace permission',
@@ -60,16 +60,6 @@ export function OverviewView({ active }: { active: ActiveTenant }) {
           never changes what you are allowed to do.
         </p>
       </Panel>
-    </div>
-  );
-}
-
-function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return (
-    <div className="fashionos-stat">
-      <dt className="fashionos-stat__label">{label}</dt>
-      <dd className="fashionos-stat__value">{value}</dd>
-      {detail ? <dd className="fashionos-stat__detail">{detail}</dd> : null}
     </div>
   );
 }

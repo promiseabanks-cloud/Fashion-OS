@@ -32,6 +32,8 @@ final class Migrations {
 		$migrations = array(
 			new Migration0001Tenancy(),
 			new Migration0002ClientsMeasurements(),
+			new Migration0003QuotationsOrders(),
+			new Migration0004ProductionInventory(),
 		);
 
 		usort(

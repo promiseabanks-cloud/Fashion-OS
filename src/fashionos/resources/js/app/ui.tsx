@@ -81,6 +81,76 @@ export function EmptyState({ title, detail }: { title: string; detail?: string }
   );
 }
 
+export function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="fashionos-stat">
+      <dt className="fashionos-stat__label">{label}</dt>
+      <dd className="fashionos-stat__value">{value}</dd>
+      {detail ? <dd className="fashionos-stat__detail">{detail}</dd> : null}
+    </div>
+  );
+}
+
+/**
+ * Previous/next controls for a paginated list. Renders nothing for one page.
+ */
+export function Pagination({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="fashionos-pagination">
+      <button
+        className="fashionos-btn fashionos-btn--ghost"
+        type="button"
+        disabled={page <= 1}
+        onClick={() => onChange(Math.max(1, page - 1))}
+      >
+        Previous
+      </button>
+      <span className="fashionos-meta">
+        Page {page} of {totalPages}
+      </span>
+      <button
+        className="fashionos-btn fashionos-btn--ghost"
+        type="button"
+        disabled={page >= totalPages}
+        onClick={() => onChange(page + 1)}
+      >
+        Next
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Turn a stored key such as `needs_rework` into "Needs rework" for display.
+ */
+export function labelValue(value: string): string {
+  return value.replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+/**
+ * Format an amount with its currency code, always with two decimals.
+ */
+export function formatMoney(value: number, currency: string): string {
+  const amount = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+  return currency ? `${currency} ${amount}` : amount;
+}
+
 /**
  * Format a UTC `DATETIME` from the API for display, with a readable fallback.
  */

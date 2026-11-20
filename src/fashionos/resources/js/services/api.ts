@@ -1,20 +1,52 @@
 import type {
   ActiveTenant,
+  AllocationInput,
+  AllocationResponse,
+  Alteration,
+  AlterationInput,
+  AlterationsResponse,
   AuditResponse,
   Client,
   ClientInput,
   ClientListResponse,
   ClientProfilesResponse,
   CreateWorkspaceInput,
+  Design,
+  DesignInput,
+  DesignListResponse,
   FashionOSConfig,
+  Fitting,
+  FittingInput,
+  FittingsResponse,
   HealthResponse,
   MeasurementProfileDetail,
   MeasurementTemplate,
   MeasurementTemplateInput,
   MeasurementVersion,
   MeasurementVersionInput,
+  Material,
+  MaterialInput,
+  MaterialMovementInput,
+  MaterialsResponse,
   MeResponse,
+  Order,
+  OrderInput,
+  OrderItemInput,
+  OrderListResponse,
   PlatformResponse,
+  ProductionDashboard,
+  ProductionJob,
+  ProductionJobInput,
+  ProductionJobListResponse,
+  ProductionStage,
+  ProductionStageInput,
+  ProductionTaskInput,
+  QualityCheck,
+  QualityCheckInput,
+  QualityChecksResponse,
+  Quotation,
+  QuotationInput,
+  QuotationListResponse,
   TeamResponse,
   TemplatesResponse,
   UpdateWorkspaceInput,
@@ -110,6 +142,28 @@ export function createApiClient(
     });
   }
 
+  /**
+   * Build a query string from optional filters, dropping blanks and page 1.
+   */
+  function filters(params: Record<string, string | number | undefined | null>): string {
+    const query = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (
+        value !== undefined &&
+        value !== null &&
+        value !== '' &&
+        !(key === 'page' && value === 1)
+      ) {
+        query.set(key, String(value));
+      }
+    });
+
+    const suffix = query.toString();
+
+    return suffix ? `?${suffix}` : '';
+  }
+
   return {
     request,
     /** Select the workspace sent with subsequent requests. */
@@ -182,5 +236,208 @@ export function createApiClient(
       mutate<MeasurementVersion>(`measurement-profiles/${profileId}/versions`, 'POST', input),
     measurementVersion: (versionId: number) =>
       request<MeasurementVersion>(`measurement-versions/${versionId}`),
+
+    /** Designs, each optionally citing a measurement profile and version. */
+    designs: (
+      params: {
+        search?: string;
+        status?: string;
+        clientId?: number;
+        page?: number;
+        perPage?: number;
+      } = {}
+    ) =>
+      request<DesignListResponse>(
+        `designs${filters({
+          search: params.search,
+          status: params.status,
+          client_id: params.clientId,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    design: (designId: number) => request<Design>(`designs/${designId}`),
+    createDesign: (input: DesignInput) => mutate<Design>('designs', 'POST', input),
+    updateDesign: (designId: number, input: DesignInput) =>
+      mutate<Design>(`designs/${designId}`, 'PATCH', input),
+
+    /** Quotations, separate from orders. */
+    quotations: (
+      params: {
+        search?: string;
+        status?: string;
+        clientId?: number;
+        page?: number;
+        perPage?: number;
+      } = {}
+    ) =>
+      request<QuotationListResponse>(
+        `quotations${filters({
+          search: params.search,
+          status: params.status,
+          client_id: params.clientId,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    quotation: (quotationId: number) => request<Quotation>(`quotations/${quotationId}`),
+    createQuotation: (input: QuotationInput) => mutate<Quotation>('quotations', 'POST', input),
+    updateQuotation: (quotationId: number, input: QuotationInput) =>
+      mutate<Quotation>(`quotations/${quotationId}`, 'PATCH', input),
+
+    /** Orders containing independently tracked garments. */
+    orders: (
+      params: {
+        search?: string;
+        status?: string;
+        clientId?: number;
+        page?: number;
+        perPage?: number;
+      } = {}
+    ) =>
+      request<OrderListResponse>(
+        `orders${filters({
+          search: params.search,
+          status: params.status,
+          client_id: params.clientId,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    order: (orderId: number) => request<Order>(`orders/${orderId}`),
+    createOrder: (input: OrderInput) => mutate<Order>('orders', 'POST', input),
+    updateOrder: (orderId: number, input: OrderInput) =>
+      mutate<Order>(`orders/${orderId}`, 'PATCH', input),
+    updateOrderItem: (itemId: number, input: OrderItemInput) =>
+      mutate<Order>(`order-items/${itemId}`, 'PATCH', input),
+    addOrderNote: (orderId: number, message: string) =>
+      mutate<Order>(`orders/${orderId}/events`, 'POST', { message }),
+
+    /** Production stages, jobs, tasks and the dashboard. */
+    productionStages: (includeInactive = false) =>
+      request<{ stages: ProductionStage[] }>(
+        `production/stages${filters({ include_inactive: includeInactive ? 1 : undefined })}`
+      ),
+    createProductionStage: (input: ProductionStageInput) =>
+      mutate<ProductionStage>('production/stages', 'POST', input),
+    updateProductionStage: (stageId: number, input: ProductionStageInput) =>
+      mutate<ProductionStage>(`production/stages/${stageId}`, 'PATCH', input),
+    productionJobs: (
+      params: {
+        search?: string;
+        status?: string;
+        assignedTo?: number;
+        orderItemId?: number;
+        page?: number;
+        perPage?: number;
+      } = {}
+    ) =>
+      request<ProductionJobListResponse>(
+        `production/jobs${filters({
+          search: params.search,
+          status: params.status,
+          assigned_to: params.assignedTo,
+          order_item_id: params.orderItemId,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    productionJob: (jobId: number) => request<ProductionJob>(`production/jobs/${jobId}`),
+    createProductionJob: (input: ProductionJobInput) =>
+      mutate<ProductionJob>('production/jobs', 'POST', input),
+    updateProductionJob: (jobId: number, input: ProductionJobInput) =>
+      mutate<ProductionJob>(`production/jobs/${jobId}`, 'PATCH', input),
+    addProductionTask: (jobId: number, input: ProductionTaskInput) =>
+      mutate<ProductionJob>(`production/jobs/${jobId}/tasks`, 'POST', input),
+    updateProductionTask: (taskId: number, input: ProductionTaskInput) =>
+      mutate<ProductionJob>(`production/tasks/${taskId}`, 'PATCH', input),
+    productionDashboard: () => request<ProductionDashboard>('production/dashboard'),
+
+    /** Material catalogue, stock and garment allocations. */
+    materials: (
+      params: {
+        search?: string;
+        type?: string;
+        lowStock?: boolean;
+        includeInactive?: boolean;
+        page?: number;
+        perPage?: number;
+      } = {}
+    ) =>
+      request<MaterialsResponse>(
+        `materials${filters({
+          search: params.search,
+          type: params.type,
+          low_stock: params.lowStock ? 1 : undefined,
+          include_inactive: params.includeInactive ? 1 : undefined,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    material: (materialId: number) => request<Material>(`materials/${materialId}`),
+    createMaterial: (input: MaterialInput) => mutate<Material>('materials', 'POST', input),
+    updateMaterial: (materialId: number, input: MaterialInput) =>
+      mutate<Material>(`materials/${materialId}`, 'PATCH', input),
+    addMaterialMovement: (materialId: number, input: MaterialMovementInput) =>
+      mutate<Material>(`materials/${materialId}/movements`, 'POST', input),
+    orderItemMaterials: (itemId: number) =>
+      request<AllocationResponse>(`order-items/${itemId}/materials`),
+    allocateMaterial: (itemId: number, input: AllocationInput) =>
+      mutate<AllocationResponse>(`order-items/${itemId}/materials`, 'POST', input),
+    releaseMaterialAllocation: (allocationId: number) =>
+      mutate<AllocationResponse>(`material-allocations/${allocationId}`, 'DELETE'),
+
+    /** Fittings and alterations. */
+    fittings: (
+      params: {
+        status?: string;
+        upcoming?: boolean;
+        orderItemId?: number;
+        page?: number;
+        perPage?: number;
+      } = {}
+    ) =>
+      request<FittingsResponse>(
+        `fittings${filters({
+          status: params.status,
+          upcoming: params.upcoming ? 1 : undefined,
+          order_item_id: params.orderItemId,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    fitting: (fittingId: number) => request<Fitting>(`fittings/${fittingId}`),
+    createFitting: (input: FittingInput) => mutate<Fitting>('fittings', 'POST', input),
+    updateFitting: (fittingId: number, input: FittingInput) =>
+      mutate<Fitting>(`fittings/${fittingId}`, 'PATCH', input),
+    alterations: (
+      params: { status?: string; orderItemId?: number; page?: number; perPage?: number } = {}
+    ) =>
+      request<AlterationsResponse>(
+        `alterations${filters({
+          status: params.status,
+          order_item_id: params.orderItemId,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    createAlteration: (input: AlterationInput) => mutate<Alteration>('alterations', 'POST', input),
+    updateAlteration: (alterationId: number, input: AlterationInput) =>
+      mutate<Alteration>(`alterations/${alterationId}`, 'PATCH', input),
+
+    /** Quality-control checks. */
+    qualityChecks: (
+      params: { result?: string; orderItemId?: number; page?: number; perPage?: number } = {}
+    ) =>
+      request<QualityChecksResponse>(
+        `quality-checks${filters({
+          result: params.result,
+          order_item_id: params.orderItemId,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    createQualityCheck: (input: QualityCheckInput) =>
+      mutate<QualityCheck>('quality-checks', 'POST', input),
   };
 }

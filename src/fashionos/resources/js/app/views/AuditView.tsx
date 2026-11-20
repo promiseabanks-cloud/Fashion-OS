@@ -15,6 +15,14 @@ const ACTION_LABELS: Record<string, string> = {
   'measurement.template.updated': 'Measurement template updated',
   'measurement.profile.created': 'Measurement profile created',
   'measurement.version.created': 'Measurements recorded',
+  'design.created': 'Design created',
+  'design.updated': 'Design updated',
+  'quotation.created': 'Quotation created',
+  'quotation.updated': 'Quotation updated',
+  'order.created': 'Order created',
+  'order.updated': 'Order updated',
+  'order.status_changed': 'Order status changed',
+  'order.item.status_changed': 'Garment status changed',
 };
 
 /**

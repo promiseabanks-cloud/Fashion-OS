@@ -289,3 +289,468 @@ export type MeasurementVersionInput = {
 export type TemplatesResponse = {
   templates: MeasurementTemplate[];
 };
+
+/* -------------------------------------------------------------------------- */
+/* Phase 3: designs, quotations and orders                                    */
+/* -------------------------------------------------------------------------- */
+
+export type Design = {
+  id: number;
+  uuid: string;
+  reference: string;
+  clientId: number;
+  clientName: string;
+  measurementProfileId: number;
+  profileName: string;
+  measurementVersionId: number;
+  measurementVersionNumber: number;
+  measurementTakenAt: string;
+  title: string;
+  garmentCategory: string;
+  brief: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DesignListResponse = {
+  designs: Design[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type DesignInput = {
+  title?: string;
+  clientId?: number;
+  garmentCategory?: string;
+  brief?: string;
+  status?: string;
+  measurementProfileId?: number;
+  measurementVersionId?: number;
+};
+
+export type QuotationItem = {
+  id: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+export type Quotation = {
+  id: number;
+  uuid: string;
+  reference: string;
+  clientId: number;
+  clientName: string;
+  designId: number;
+  designTitle: string;
+  currency: string;
+  status: string;
+  validUntil: string;
+  notes: string;
+  subtotal: number;
+  total: number;
+  itemCount: number;
+  items: QuotationItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type QuotationListResponse = {
+  quotations: Quotation[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type QuotationItemInput = {
+  description: string;
+  quantity: number | string;
+  unitPrice: number | string;
+};
+
+export type QuotationInput = {
+  clientId?: number;
+  designId?: number;
+  status?: string;
+  validUntil?: string;
+  notes?: string;
+  items?: QuotationItemInput[];
+};
+
+export type OrderItem = {
+  id: number;
+  garmentName: string;
+  garmentCategory: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  status: string;
+  notes: string;
+  designId: number;
+  designTitle: string;
+  designReference: string;
+  measurementProfileId: number;
+  profileName: string;
+  measurementVersionId: number;
+  measurementVersionNumber: number;
+  measurementTakenAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrderEvent = {
+  id: number;
+  type: string;
+  message: string;
+  orderItemId: number;
+  actorId: number;
+  actorName: string;
+  createdAt: string;
+};
+
+export type Order = {
+  id: number;
+  uuid: string;
+  reference: string;
+  clientId: number;
+  clientName: string;
+  quotationId: number;
+  quotationReference: string;
+  currency: string;
+  status: string;
+  dueDate: string;
+  notes: string;
+  total: number;
+  garmentCount: number;
+  items: OrderItem[];
+  timeline: OrderEvent[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrderListResponse = {
+  orders: Order[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type OrderGarmentInput = {
+  garmentName: string;
+  quantity: number | string;
+  unitPrice: number | string;
+  designId?: number;
+  measurementVersionId?: number;
+  notes?: string;
+};
+
+export type OrderInput = {
+  clientId?: number;
+  quotationId?: number;
+  status?: string;
+  dueDate?: string;
+  notes?: string;
+  items?: OrderGarmentInput[];
+};
+
+export type OrderItemInput = {
+  status?: string;
+  notes?: string;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Phase 4: production and inventory                                          */
+/* -------------------------------------------------------------------------- */
+
+export type ProductionStage = {
+  id: number;
+  name: string;
+  slug: string;
+  sequence: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductionStageInput = {
+  name?: string;
+  sequence?: number;
+  isActive?: boolean;
+};
+
+export type ProductionTask = {
+  id: number;
+  jobId: number;
+  stageId: number;
+  stageName: string;
+  stageSlug: string;
+  status: string;
+  assignedTo: number;
+  assigneeName: string;
+  dueDate: string;
+  completedAt: string;
+  notes: string;
+};
+
+export type ProductionJob = {
+  id: number;
+  orderItemId: number;
+  orderId: number;
+  orderReference: string;
+  orderDueDate: string;
+  clientName: string;
+  garmentName: string;
+  garmentCategory: string;
+  garmentStatus: string;
+  status: string;
+  assignedTo: number;
+  assigneeName: string;
+  startDate: string;
+  dueDate: string;
+  notes: string;
+  taskTotal: number;
+  taskDone: number;
+  tasks: ProductionTask[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductionJobListResponse = {
+  jobs: ProductionJob[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type ProductionJobInput = {
+  orderItemId?: number;
+  status?: string;
+  assignedTo?: number | string;
+  startDate?: string;
+  dueDate?: string;
+  notes?: string;
+};
+
+export type ProductionTaskInput = {
+  stageId?: number;
+  status?: string;
+  assignedTo?: number | string;
+  dueDate?: string;
+  notes?: string;
+};
+
+export type MaterialsResponse = {
+  materials: Material[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type Material = {
+  id: number;
+  name: string;
+  materialType: string;
+  unit: string;
+  quantityOnHand: number;
+  reorderLevel: number;
+  unitCost: number;
+  notes: string;
+  isActive: boolean;
+  lowStock: boolean;
+  movements: MaterialMovement[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MaterialMovement = {
+  id: number;
+  type: string;
+  quantity: number;
+  referenceType: string;
+  referenceId: number;
+  note: string;
+  actorId: number;
+  actorName: string;
+  createdAt: string;
+};
+
+export type MaterialInput = {
+  name?: string;
+  materialType?: string;
+  unit?: string;
+  quantityOnHand?: number | string;
+  reorderLevel?: number | string;
+  unitCost?: number | string;
+  notes?: string;
+  isActive?: boolean;
+};
+
+export type MaterialMovementInput = {
+  type: string;
+  quantity: number | string;
+  note?: string;
+};
+
+export type MaterialAllocation = {
+  id: number;
+  orderItemId: number;
+  materialId: number;
+  materialName: string;
+  unit: string;
+  quantity: number;
+  source: string;
+  notes: string;
+  createdBy: number;
+  createdByName: string;
+  createdAt: string;
+};
+
+export type AllocationResponse = {
+  garment: {
+    id: number;
+    garmentName: string;
+    garmentCategory: string;
+    orderId: number;
+    orderReference: string;
+    clientName: string;
+  };
+  allocations: MaterialAllocation[];
+};
+
+export type AllocationInput = {
+  materialId: number;
+  quantity: number | string;
+  source: string;
+  notes?: string;
+};
+
+export type Fitting = {
+  id: number;
+  orderItemId: number;
+  orderId: number;
+  orderReference: string;
+  clientName: string;
+  garmentName: string;
+  assignedTo: number;
+  assigneeName: string;
+  scheduledAt: string;
+  status: string;
+  location: string;
+  notes: string;
+  outcome: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FittingsResponse = {
+  fittings: Fitting[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type FittingInput = {
+  orderItemId?: number;
+  scheduledAt?: string;
+  assignedTo?: number | string;
+  status?: string;
+  location?: string;
+  notes?: string;
+  outcome?: string;
+};
+
+export type Alteration = {
+  id: number;
+  orderItemId: number;
+  orderId: number;
+  orderReference: string;
+  clientName: string;
+  garmentName: string;
+  fittingId: number;
+  fittingScheduledAt: string;
+  description: string;
+  status: string;
+  dueDate: string;
+  completedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AlterationsResponse = {
+  alterations: Alteration[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type AlterationInput = {
+  fittingId?: number;
+  orderItemId?: number;
+  description?: string;
+  status?: string;
+  dueDate?: string;
+};
+
+export type QualityCheck = {
+  id: number;
+  orderItemId: number;
+  orderId: number;
+  orderReference: string;
+  clientName: string;
+  garmentName: string;
+  checkedBy: number;
+  checkedByName: string;
+  result: string;
+  notes: string;
+  checkedAt: string;
+  createdAt: string;
+};
+
+export type QualityChecksResponse = {
+  checks: QualityCheck[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type QualityCheckInput = {
+  orderItemId: number;
+  result: string;
+  notes?: string;
+  checkedAt?: string;
+};
+
+export type ProductionDashboard = {
+  counts: {
+    jobs: Record<string, number>;
+    jobsTotal: number;
+    overdueJobs: number;
+    unassignedJobs: number;
+    openTasks: number;
+    unplannedGarments: number;
+    failedChecks: number;
+    needsRework: number;
+  };
+  unplannedGarments: Array<{
+    id: number;
+    garmentName: string;
+    garmentStatus: string;
+    orderId: number;
+    orderReference: string;
+    clientName: string;
+  }>;
+  upcomingFittings: Fitting[];
+  recentFailures: QualityCheck[];
+  lowStock: Material[];
+};

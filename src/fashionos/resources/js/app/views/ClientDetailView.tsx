@@ -9,7 +9,7 @@ import type {
   MeasurementTemplate,
   MeasurementVersion,
 } from '../../types';
-import { Alert, EmptyState, Loading, Panel, formatDate } from '../ui';
+import { Alert, EmptyState, Loading, Panel, Stat, formatDate } from '../ui';
 import { ClientForm } from './ClientForm';
 
 /**
@@ -595,15 +595,6 @@ function MeasurementForm({
           </button>
         </div>
       </form>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="fashionos-stat">
-      <dt className="fashionos-stat__label">{label}</dt>
-      <dd className="fashionos-stat__value">{value}</dd>
     </div>
   );
 }

@@ -12,7 +12,14 @@ namespace FashionOS\Core;
 use FashionOS\API\Controllers\AuditController;
 use FashionOS\API\Controllers\AuthController;
 use FashionOS\API\Controllers\ClientController;
+use FashionOS\API\Controllers\DesignController;
+use FashionOS\API\Controllers\FittingController;
+use FashionOS\API\Controllers\MaterialController;
 use FashionOS\API\Controllers\MeasurementController;
+use FashionOS\API\Controllers\OrderController;
+use FashionOS\API\Controllers\ProductionController;
+use FashionOS\API\Controllers\QualityController;
+use FashionOS\API\Controllers\QuotationController;
 use FashionOS\API\Controllers\PlatformController;
 use FashionOS\API\Controllers\SystemController;
 use FashionOS\API\Controllers\TeamController;
@@ -23,13 +30,28 @@ use FashionOS\Database\Migrations\Migrations;
 use FashionOS\Database\Migrator;
 use FashionOS\Database\Repositories\AuditLogRepository;
 use FashionOS\Database\Repositories\ClientRepository;
+use FashionOS\Database\Repositories\DesignRepository;
+use FashionOS\Database\Repositories\FittingRepository;
+use FashionOS\Database\Repositories\MaterialRepository;
 use FashionOS\Database\Repositories\MeasurementRepository;
 use FashionOS\Database\Repositories\MeasurementTemplateRepository;
 use FashionOS\Database\Repositories\MembershipRepository;
+use FashionOS\Database\Repositories\OrderRepository;
+use FashionOS\Database\Repositories\ProductionRepository;
+use FashionOS\Database\Repositories\QualityRepository;
+use FashionOS\Database\Repositories\QuotationRepository;
 use FashionOS\Database\Repositories\RoleRepository;
 use FashionOS\Database\Repositories\TenantRepository;
 use FashionOS\Database\Transaction;
+use FashionOS\Designs\DesignService;
+use FashionOS\Fittings\FittingService;
+use FashionOS\Inventory\MaterialService;
 use FashionOS\Measurements\MeasurementService;
+use FashionOS\Orders\OrderService;
+use FashionOS\Production\ProductionService;
+use FashionOS\Production\Staff;
+use FashionOS\Quality\QualityService;
+use FashionOS\Quotations\QuotationService;
 use FashionOS\Tenancy\TenantResolver;
 use FashionOS\Tenancy\TenantService;
 
@@ -119,12 +141,27 @@ final class Plugin {
 		$clients      = new ClientRepository();
 		$templates    = new MeasurementTemplateRepository();
 		$measurements = new MeasurementRepository();
+		$designs      = new DesignRepository();
+		$quotations   = new QuotationRepository();
+		$orders       = new OrderRepository();
+		$production   = new ProductionRepository();
+		$materials    = new MaterialRepository();
+		$fittings     = new FittingRepository();
+		$quality      = new QualityRepository();
 		$transactions = new Transaction();
+		$staff        = new Staff( $memberships );
 
 		$resolver            = new TenantResolver( $tenants, $memberships );
 		$service             = new TenantService( $tenants, $roles, $memberships, $audit, $transactions );
 		$client_service      = new ClientService( $clients, $audit, $transactions );
 		$measurement_service = new MeasurementService( $clients, $templates, $measurements, $audit, $transactions );
+		$design_service      = new DesignService( $designs, $clients, $measurements, $audit, $transactions );
+		$quotation_service   = new QuotationService( $quotations, $designs, $clients, $audit, $transactions );
+		$order_service       = new OrderService( $orders, $quotations, $designs, $clients, $measurements, $audit, $transactions );
+		$production_service  = new ProductionService( $production, $orders, $fittings, $quality, $materials, $audit, $transactions, $staff );
+		$material_service    = new MaterialService( $materials, $audit, $transactions );
+		$fitting_service     = new FittingService( $fittings, $orders, $staff, $audit, $transactions );
+		$quality_service     = new QualityService( $quality, $orders, $audit, $transactions );
 
 		$this->controllers = array(
 			new SystemController( new Migrator(), new Assets() ),
@@ -133,6 +170,13 @@ final class Plugin {
 			new TeamController( $memberships, $roles, $resolver, $service ),
 			new ClientController( $client_service, $resolver ),
 			new MeasurementController( $measurement_service, $resolver ),
+			new DesignController( $design_service, $resolver ),
+			new QuotationController( $quotation_service, $resolver ),
+			new OrderController( $order_service, $resolver ),
+			new ProductionController( $production_service, $resolver ),
+			new MaterialController( $material_service, $resolver ),
+			new FittingController( $fitting_service, $resolver ),
+			new QualityController( $quality_service, $resolver ),
 			new AuditController( $audit, $resolver ),
 			new PlatformController( $tenants, $audit ),
 		);

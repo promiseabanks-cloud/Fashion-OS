@@ -8,6 +8,46 @@ This changelog records **implementation history**. Approved changes to the found
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-19
+
+### Added
+
+- **Phase 4: Production and Inventory.**
+  - Migration `0004`: `fos_production_stages`, `fos_production_jobs`, `fos_production_tasks`, `fos_materials`, `fos_material_allocations`, `fos_material_movements`, `fos_fittings`, `fos_alterations` and `fos_quality_checks`, with tenant-first indexes and no foreign keys.
+  - One production job per garment (unique per workspace), with an optional assignee limited to active members, start/due dates, notes and status transitions from `queued` through `in_progress`/`blocked` to `completed` or `cancelled`.
+  - Configurable stage workflow: nine starter stages are seeded per workspace on first use and seeded for existing workspaces by the migration; stages can be added, renamed, reordered or deactivated.
+  - Stage tasks per job with assignee, due date and completion stamps.
+  - Materials with type, unit, stock on hand, reorder level and unit cost, plus an append-only stock ledger (`in`, `out`, `adjustment`, and internal `allocation`/`return` entries). Stock can never go negative.
+  - Garment allocations that record their supply source. Only `designer_supplied` material decrements stock; `customer_supplied` and `shared_supply` allocations never touch it. Releasing a designer allocation returns the quantity.
+  - Per-garment fittings (`scheduled`, `completed`, `missed`, `cancelled`), alterations with an optional source fitting, and append-only quality checks (`passed`, `failed`, `needs_rework`) that surface failures on the order timeline.
+  - Production dashboard covering active jobs, status counts, upcoming due dates, recent failed checks and low-stock materials, plus garments that have no job yet.
+  - Studio views for production (dashboard, job list, per-garment workflow) and materials (stock, movements, allocations).
+  - Permission keys `production.*`, `materials.*`, `fittings.*` and `quality.*`, with migration `0004` re-seeding existing system roles.
+  - WordPress test-library suite in `tests/php/ProductionInventoryTest.php` (written; not yet executed — see `docs/PHASE_4_PLAN.md`).
+  - Documentation: `docs/PHASE_4_PLAN.md`; API, schema, READMEs and plugin readme updated.
+
+### Fixed
+
+- Quotation lines are now inserted with their `tenant_id` and `quotation_id`, so a saved quotation can always be read back with its lines.
+- A design can no longer reference a measurement profile and a version from different customers.
+- An order created from a quotation now validates the client-supplied `quotationItemId` against the active workspace and the chosen quotation.
+
+## [0.4.0] - 2026-11-19
+
+### Added
+
+- **Phase 3: Designs, Quotations and Orders.**
+  - Migration `0003`: `fos_designs`, `fos_quotations`, `fos_quotation_items`, `fos_orders`, `fos_order_items` and `fos_order_events`, with tenant-first indexes and no foreign keys.
+  - Design records with per-workspace references (`D-0001`), an optional garment category and brief, and optional references to one measurement profile and one exact measurement version validated against the design's own customer.
+  - Quotations (`Q-0001`) with line items, validity date, notes and status (`draft`, `sent`, `accepted`, `declined`, `expired`). Line totals and the subtotal are computed on the server; lines may only be replaced while the quotation is a draft.
+  - Orders (`O-0001`) with multiple independently tracked garments, each storing its own design and measurement-version reference and its own production status (`pending`, `cutting`, `sewing`, `fitting`, `ready`, `delivered`, `cancelled`).
+  - Orders created from a quotation copy its lines (keeping the source line id) and leave the quotation untouched, so the two records keep separate lifecycles.
+  - Order activity timeline covering creation, garment additions, order and garment status changes and free-text notes; status changes are also written to the workspace audit trail.
+  - Studio views for designs (with profile/version picker), quotations (repeatable priced lines) and orders (per-garment status and timeline).
+  - Permission keys `designs.*`, `quotations.*` and `orders.*`, with migration `0003` re-seeding existing system roles.
+  - WordPress test-library suite in `tests/php/QuotationOrderTest.php` (written; not yet executed — see `docs/PHASE_3_PLAN.md`).
+  - Documentation: `docs/PHASE_3_PLAN.md`; API, schema, READMEs and plugin readme updated.
+
 ## [0.3.0] - 2026-11-19
 
 ### Added

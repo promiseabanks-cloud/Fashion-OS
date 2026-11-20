@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { ApiClient } from '../../services/api';
 import type { ActiveTenant, ClientInput, ClientListResponse } from '../../types';
-import { Alert, EmptyState, Loading, Panel, formatDate } from '../ui';
+import { Alert, EmptyState, Loading, Pagination, Panel, formatDate } from '../ui';
 import { ClientDetailView } from './ClientDetailView';
 import { ClientForm } from './ClientForm';
 
@@ -217,28 +217,8 @@ export function ClientsView({ client, active }: { client: ApiClient; active: Act
           </div>
         )}
 
-        {list && list.totalPages > 1 ? (
-          <div className="fashionos-pagination">
-            <button
-              className="fashionos-btn fashionos-btn--ghost"
-              type="button"
-              disabled={list.page <= 1}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-            >
-              Previous
-            </button>
-            <span className="fashionos-meta">
-              Page {list.page} of {list.totalPages}
-            </span>
-            <button
-              className="fashionos-btn fashionos-btn--ghost"
-              type="button"
-              disabled={list.page >= list.totalPages}
-              onClick={() => setPage((current) => current + 1)}
-            >
-              Next
-            </button>
-          </div>
+        {list ? (
+          <Pagination page={list.page} totalPages={list.totalPages} onChange={setPage} />
         ) : null}
       </Panel>
     </div>

@@ -4,13 +4,30 @@ import type { MeResponse } from '../types';
 import { CreateWorkspaceForm } from './WorkspaceSetup';
 import { AuditView } from './views/AuditView';
 import { ClientsView } from './views/ClientsView';
+import { DesignsView } from './views/DesignsView';
+import { MaterialsView } from './views/MaterialsView';
+import { OrdersView } from './views/OrdersView';
 import { OverviewView } from './views/OverviewView';
+import { ProductionView } from './views/ProductionView';
 import { PlatformView } from './views/PlatformView';
+import { QuotationsView } from './views/QuotationsView';
 import { SettingsView } from './views/SettingsView';
 import { TeamView } from './views/TeamView';
 import { TemplatesView } from './views/TemplatesView';
 
-type View = 'overview' | 'clients' | 'templates' | 'team' | 'settings' | 'audit' | 'platform';
+type View =
+  | 'overview'
+  | 'clients'
+  | 'designs'
+  | 'templates'
+  | 'quotations'
+  | 'orders'
+  | 'production'
+  | 'materials'
+  | 'team'
+  | 'settings'
+  | 'audit'
+  | 'platform';
 
 /**
  * The studio shell: workspace switcher, permission-aware navigation and views.
@@ -48,8 +65,28 @@ export function Studio({
     navItems.push({ id: 'clients', label: 'Clients' });
   }
 
+  if (can('designs.view')) {
+    navItems.push({ id: 'designs', label: 'Designs' });
+  }
+
   if (can('measurements.view')) {
     navItems.push({ id: 'templates', label: 'Measurement templates' });
+  }
+
+  if (can('quotations.view')) {
+    navItems.push({ id: 'quotations', label: 'Quotations' });
+  }
+
+  if (can('orders.view')) {
+    navItems.push({ id: 'orders', label: 'Orders' });
+  }
+
+  if (can('production.view')) {
+    navItems.push({ id: 'production', label: 'Production' });
+  }
+
+  if (can('materials.view')) {
+    navItems.push({ id: 'materials', label: 'Materials' });
   }
 
   if (can('team.view')) {
@@ -165,8 +202,31 @@ export function Studio({
           {current === 'clients' ? (
             <ClientsView key={`clients-${active.tenant.id}`} client={client} active={active} />
           ) : null}
+          {current === 'designs' ? (
+            <DesignsView key={`designs-${active.tenant.id}`} client={client} active={active} />
+          ) : null}
           {current === 'templates' ? (
             <TemplatesView key={`templates-${active.tenant.id}`} client={client} active={active} />
+          ) : null}
+          {current === 'quotations' ? (
+            <QuotationsView
+              key={`quotations-${active.tenant.id}`}
+              client={client}
+              active={active}
+            />
+          ) : null}
+          {current === 'orders' ? (
+            <OrdersView key={`orders-${active.tenant.id}`} client={client} active={active} />
+          ) : null}
+          {current === 'production' ? (
+            <ProductionView
+              key={`production-${active.tenant.id}`}
+              client={client}
+              active={active}
+            />
+          ) : null}
+          {current === 'materials' ? (
+            <MaterialsView key={`materials-${active.tenant.id}`} client={client} active={active} />
           ) : null}
           {current === 'team' ? (
             <TeamView client={client} active={active} onChanged={onRefresh} />

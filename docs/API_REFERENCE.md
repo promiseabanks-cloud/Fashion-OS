@@ -66,7 +66,7 @@ The header is a **selector**, not proof of access. The server resolves it agains
 
 | Method | Route | Permission | Notes |
 |---|---|---|---|
-| `GET` | `/auth/me` | signed in | `{ user, workspaces, activeTenant, workspaceError, roles }`; errors resolving a workspace return `activeTenant: null` instead of failing the bootstrap call |
+| `GET` | `/auth/me` | signed in | `{ user, workspaces, activeTenant, workspaceError }`; errors resolving a workspace return `activeTenant: null` instead of failing the bootstrap call |
 | `GET` | `/tenants` | signed in | `{ workspaces }` |
 | `POST` | `/tenants` | signed in | Body `{ name, timezone?, currency? }`; returns the new active workspace with `201` |
 | `GET` | `/tenants/current` | `workspace.view` | Active workspace, role, permissions, member count, roles |
@@ -217,6 +217,174 @@ Customer list pagination is returned inside `data`, alongside the rows:
 | `measurement_version_not_found` | 404 | No such version in the active workspace |
 | `measurement_version_create_failed` | 500 | Version or value insert failure; the transaction is rolled back |
 
+## Implemented in Phase 3
+
+Design, quotation and order routes. They use the same workspace header, nonce and permission checks as the earlier phases.
+
+| Method | Route | Permission | Notes |
+|---|---|---|---|
+| `GET` | `/designs` | `designs.view` | `?search=` (title, reference, category, customer), `?status=draft\|approved\|archived\|all`, `?client_id=`, `?page=`, `?per_page=` |
+| `POST` | `/designs` | `designs.manage` | Body `{ title, clientId, garmentCategory?, brief?, measurementProfileId?, measurementVersionId? }`; returns the design with `201` |
+| `GET` | `/designs/{id}` | `designs.view` | One design with the referenced profile name and version number |
+| `PATCH` | `/designs/{id}` | `designs.manage` | Body may contain `title`, `garmentCategory`, `brief`, `status`, `measurementProfileId`, `measurementVersionId` (0 clears a reference) |
+| `GET` | `/quotations` | `quotations.view` | `?search=` (reference, customer, design), `?status=`, `?client_id=`, `?page=`, `?per_page=` |
+| `POST` | `/quotations` | `quotations.manage` | Body `{ clientId, designId?, validUntil?, notes?, items }`; totals are computed on the server |
+| `GET` | `/quotations/{id}` | `quotations.view` | One quotation with `items`, `subtotal`, `total` and `itemCount` |
+| `PATCH` | `/quotations/{id}` | `quotations.manage` | Body may contain `status`, `validUntil`, `notes`, `designId`, `items`; `items` is accepted only while the quotation is a draft |
+| `GET` | `/orders` | `orders.view` | `?search=` (reference, customer, garment), `?status=`, `?client_id=`, `?page=`, `?per_page=` |
+| `POST` | `/orders` | `orders.manage` | Body `{ clientId` or `quotationId`, `dueDate?`, `notes?`, `items? }`; omitted items copy every quotation line |
+| `GET` | `/orders/{id}` | `orders.view` | Order with `items` (garments) and `timeline` |
+| `PATCH` | `/orders/{id}` | `orders.manage` | Body may contain `status`, `dueDate`, `notes` |
+| `POST` | `/orders/{id}/events` | `orders.manage` | Body `{ message }`; appends a timeline note |
+| `PATCH` | `/order-items/{id}` | `orders.manage` | Body may contain `status` and `notes`; affects one garment only |
+
+A quotation line is `{ description, quantity, unitPrice }` on input; responses add `id` and `lineTotal`. Amounts must be between `0` and `9,999,999.99` with at most two decimals, and quantities are whole numbers from `1` to `9999`. A maximum of 50 lines or garments applies.
+
+A garment is `{ garmentName, quantity?, unitPrice?, designId?, measurementVersionId?, notes? }`. A garment that cites a design without an explicit version inherits the design's measurement version. Both references must belong to the order's customer.
+
+Order statuses are `draft`, `confirmed`, `in_progress`, `ready`, `delivered` and `cancelled`. Garment statuses are `pending`, `cutting`, `sewing`, `fitting`, `ready`, `delivered` and `cancelled`. Status changes append a timeline event; the same changes are written to the audit trail as `order.status_changed` or `order.item.status_changed`.
+
+### Phase 3 error codes
+
+| Code | Status | Meaning |
+|---|---|---|
+| `design_not_found` | 404 | No such design in the active workspace |
+| `design_title_required` / `_too_long` | 422 | Title missing or over 120 characters |
+| `design_client_required` | 422 | No customer supplied (or the customer does not exist in this workspace) |
+| `design_garment_category_too_long` | 422 | Category over 60 characters |
+| `design_brief_too_long` | 422 | Brief over 5000 characters |
+| `design_status_invalid` | 422 | Status other than `draft`/`approved`/`archived` |
+| `design_measurement_mismatch` | 422 | The cited profile or version belongs to another customer |
+| `design_create_failed` / `design_update_failed` | 500 | Write failure |
+| `quotation_not_found` | 404 | No such quotation in the active workspace |
+| `quotation_client_required` | 422 | No customer supplied (or the customer does not exist in this workspace) |
+| `quotation_design_mismatch` | 422 | The design belongs to another customer |
+| `quotation_items_required` | 422 | No lines supplied, or an empty item list |
+| `quotation_item_invalid` | 422 | A line is not an object; `details.index` identifies it |
+| `quotation_item_description_required` / `_too_long` | 422 | Line description missing or over 191 characters |
+| `quotation_item_quantity_invalid` | 422 | Quantity not a whole number from 1 to 9999 |
+| `quotation_item_price_invalid` | 422 | Unit price outside `0–9,999,999.99` |
+| `quotation_too_many_items` | 422 | More than 50 lines |
+| `quotation_status_invalid` | 422 | Unknown quotation status |
+| `quotation_valid_until_invalid` | 422 | Unparseable date |
+| `quotation_notes_too_long` | 422 | Notes over 2000 characters |
+| `quotation_locked` | 409 | Lines can only be replaced while the quotation is a draft |
+| `quotation_create_failed` / `quotation_update_failed` | 500 | Write failure; the transaction is rolled back |
+| `order_not_found` | 404 | No such order in the active workspace |
+| `order_client_required` | 422 | Neither a valid customer nor a quotation was supplied |
+| `order_client_mismatch` | 422 | The supplied customer differs from the quotation's customer |
+| `order_items_required` | 422 | No garments supplied and no quotation to copy |
+| `order_item_invalid` | 422 | A garment is not an object; `details.index` identifies it |
+| `order_item_name_required` / `_too_long` | 422 | Garment name missing or over 120 characters |
+| `order_item_quantity_invalid` | 422 | Quantity not a whole number from 1 to 9999 |
+| `order_item_price_invalid` | 422 | Unit price outside `0–9,999,999.99` |
+| `order_too_many_items` | 422 | More than 50 garments |
+| `order_design_mismatch` | 422 | The design belongs to another customer |
+| `order_measurement_mismatch` | 422 | The measurement version belongs to another customer |
+| `order_status_invalid` | 422 | Unknown order status |
+| `order_item_status_invalid` | 422 | Unknown garment status |
+| `order_due_date_invalid` | 422 | Unparseable due date |
+| `order_notes_too_long` / `order_item_notes_too_long` | 422 | Notes over 2000 characters |
+| `order_item_not_found` | 404 | No such garment in the active workspace |
+| `order_note_required` / `order_note_too_long` | 422 | Empty note, or one over 2000 characters |
+| `order_create_failed` / `order_update_failed` / `order_item_update_failed` / `order_event_failed` | 500 | Write failure; the transaction is rolled back |
+
+## Implemented in Phase 4
+
+Production, material, fitting and quality routes. Every route uses the same workspace header, nonce and permission checks as the earlier phases, and every garment reference is validated against the active workspace.
+
+| Method | Route | Permission | Notes |
+|---|---|---|---|
+| `GET` | `/production/stages` | `production.view` | Seeded starter workflow and custom stages, in sequence order |
+| `POST` | `/production/stages` | `production.manage` | Body `{ name, sequence?, isActive? }`; the slug is derived from the name |
+| `PATCH` | `/production/stages/{id}` | `production.manage` | Body may contain `name`, `sequence`, `isActive` |
+| `GET` | `/production/jobs` | `production.view` | `?search=` (reference, customer, garment), `?status=queued\|in_progress\|blocked\|completed\|cancelled\|all`, `?assigned_to=`, `?order_item_id=`, `?page=`, `?per_page=` |
+| `POST` | `/production/jobs` | `production.manage` | Body `{ orderItemId, assignedTo?, startDate?, dueDate?, notes? }`; one job per garment, returns `201` |
+| `GET` | `/production/jobs/{id}` | `production.view` | Job with garment, customer, order, stage tasks, materials, fittings and checks |
+| `PATCH` | `/production/jobs/{id}` | `production.manage` | Body may contain `status`, `assignedTo` (`0` clears), `startDate`, `dueDate`, `notes` |
+| `POST` | `/production/jobs/{id}/tasks` | `production.manage` | Body `{ stageId, assignedTo?, dueDate?, notes? }`; returns the job with its tasks |
+| `PATCH` | `/production/tasks/{id}` | `production.manage` | Body may contain `status`, `assignedTo`, `dueDate`, `notes`; completing a task stamps `completedAt` |
+| `GET` | `/production/dashboard` | `production.view` | Counts, jobs by status, upcoming due dates, failed checks, low stock and unplanned garments |
+| `GET` | `/materials` | `materials.view` | `?search=`, `?type=fabric\|accessory\|consumable\|all`, `?low_stock=1`, `?include_inactive=1`, `?page=`, `?per_page=` |
+| `POST` | `/materials` | `materials.manage` | Body `{ name, materialType?, unit, quantityOnHand?, reorderLevel?, unitCost?, notes? }` |
+| `GET` | `/materials/{id}` | `materials.view` | Material with recent stock movements |
+| `PATCH` | `/materials/{id}` | `materials.manage` | Body may contain `name`, `materialType`, `unit`, `reorderLevel`, `unitCost`, `notes`, `isActive` |
+| `GET` | `/materials/{id}/movements` | `materials.view` | Paginated stock ledger |
+| `POST` | `/materials/{id}/movements` | `materials.manage` | Body `{ type: in\|out\|adjustment, quantity, note? }`; `adjustment` accepts a signed quantity |
+| `GET` | `/order-items/{id}/materials` | `materials.view` | Active allocations and the material totals for one garment |
+| `POST` | `/order-items/{id}/materials` | `materials.manage` | Body `{ materialId, quantity, source: customer_supplied\|designer_supplied\|shared_supply, notes? }` |
+| `DELETE` | `/material-allocations/{id}` | `materials.manage` | Releases the allocation; designer-supplied stock returns to inventory |
+| `GET` | `/fittings` | `fittings.view` | `?status=`, `?order_item_id=`, `?upcoming=1`, `?page=`, `?per_page=` |
+| `POST` | `/fittings` | `fittings.manage` | Body `{ orderItemId, scheduledAt, location?, assignedTo?, notes? }` |
+| `PATCH` | `/fittings/{id}` | `fittings.manage` | Body may contain `status`, `scheduledAt`, `location`, `assignedTo`, `outcome`, `notes` |
+| `GET` | `/alterations` | `fittings.view` | `?status=`, `?order_item_id=`, `?page=`, `?per_page=` |
+| `POST` | `/alterations` | `fittings.manage` | Body `{ orderItemId, fittingId?, description, dueDate? }`; a fitting must belong to the same garment |
+| `PATCH` | `/alterations/{id}` | `fittings.manage` | Body may contain `status`, `description`, `dueDate`, `notes`; completion stamps `completedAt` |
+| `GET` | `/quality-checks` | `quality.view` | `?result=passed\|failed\|needs_rework\|all`, `?order_item_id=`, `?page=`, `?per_page=` |
+| `POST` | `/quality-checks` | `quality.manage` | Body `{ orderItemId, result, notes?, checkedAt? }`; failed and rework results append to the order timeline |
+
+Each garment has at most one production job. Jobs move `queued → in_progress → completed` (or through `blocked`); `completed` and `cancelled` are terminal. Task statuses are `pending`, `in_progress`, `done` and `cancelled`. Fittings move `scheduled → completed|missed|cancelled`, with `missed` and `cancelled` rebookable; alteration statuses are `open`, `in_progress`, `completed` and `cancelled`.
+
+Materials are `fabric`, `accessory` or `consumable`, measured in `metre`, `yard`, `piece`, `roll`, `spool`, `kilogram` or `litre`. Opening stock is recorded as an `in` movement. Allocating `designer_supplied` material decrements stock inside the same transaction as the allocation and writes an `allocation` movement; `customer_supplied` and `shared_supply` allocations never change stock. Releasing a designer allocation writes a `return` movement. Stock can never go below zero. Allocations and stock movements are written to the audit trail.
+
+Dates use `YYYY-MM-DD`; timestamps use `YYYY-MM-DD HH:MM:SS` in UTC.
+
+### Phase 4 error codes
+
+| Code | Status | Meaning |
+|---|---|---|
+| `production_stage_not_found` | 404 | No such stage in the active workspace |
+| `production_stage_name_required` / `_too_long` | 422 | Stage name missing or over 80 characters |
+| `production_stage_slug_exists` | 409 | A stage with the derived slug already exists |
+| `production_stage_sequence_invalid` | 422 | Sequence not a whole number from 0 to 9999 |
+| `production_stage_inactive` | 422 | Task cites a stage that is switched off |
+| `production_stage_create_failed` / `production_stage_update_failed` | 500 | Write failure |
+| `production_garment_required` | 422 | No garment supplied, or it does not exist in this workspace |
+| `production_job_not_found` | 404 | No such job in the active workspace |
+| `production_job_exists` | 409 | The garment already has a production job |
+| `production_assignee_invalid` | 422 | The assignee is not an active member of the workspace |
+| `production_job_status_invalid` / `production_task_status_invalid` | 422 | Unknown status |
+| `production_job_transition_invalid` | 409 | The requested job status move is not allowed |
+| `production_start_date_invalid` / `production_due_date_invalid` | 422 | Unparseable date |
+| `production_notes_too_long` | 422 | Notes over 2000 characters |
+| `production_task_not_found` | 404 | No such task in the active workspace |
+| `production_job_create_failed` / `production_job_update_failed` / `production_task_create_failed` / `production_task_update_failed` | 500 | Write failure; the transaction is rolled back |
+| `material_not_found` | 404 | No such material in the active workspace |
+| `material_name_required` / `_too_long` | 422 | Material name missing or over 120 characters |
+| `material_type_invalid` / `material_unit_invalid` | 422 | Unknown material type or unit |
+| `material_quantity_invalid` / `material_reorder_level_invalid` / `material_unit_cost_invalid` | 422 | Non-negative amount outside the allowed range |
+| `material_notes_too_long` / `material_movement_note_too_long` | 422 | Notes over 2000 characters |
+| `material_movement_type_invalid` | 422 | Movement type other than `in`, `out` or `adjustment` |
+| `material_movement_quantity_invalid` | 422 | Zero, non-numeric or non-negative `in`/`out` quantity |
+| `material_insufficient_stock` | 409 | The movement or allocation would take stock below zero |
+| `material_inactive` | 422 | The material is archived |
+| `material_allocation_quantity_invalid` | 422 | Allocation quantity not greater than zero |
+| `material_allocation_source_invalid` | 422 | Unknown supply source |
+| `material_allocation_notes_too_long` | 422 | Allocation notes over 2000 characters |
+| `material_allocation_not_found` | 404 | No such active allocation in this workspace |
+| `material_create_failed` / `material_update_failed` / `material_movement_failed` / `material_allocation_failed` / `material_release_failed` | 500 | Write failure; the transaction is rolled back |
+| `fitting_garment_required` | 422 | No garment supplied, or it does not exist in this workspace |
+| `fitting_not_found` | 404 | No such fitting in the active workspace |
+| `fitting_scheduled_at_invalid` | 422 | Unparseable fitting time |
+| `fitting_assignee_invalid` | 422 | The assignee is not an active member of the workspace |
+| `fitting_location_too_long` / `fitting_notes_too_long` / `fitting_outcome_too_long` | 422 | Text over the allowed length |
+| `fitting_status_invalid` | 422 | Unknown fitting status |
+| `fitting_transition_invalid` | 409 | The requested fitting status move is not allowed |
+| `fitting_create_failed` / `fitting_update_failed` | 500 | Write failure; the transaction is rolled back |
+| `alteration_garment_required` | 422 | No garment supplied, or it does not exist in this workspace |
+| `alteration_not_found` | 404 | No such alteration in the active workspace |
+| `alteration_garment_mismatch` | 422 | The cited fitting belongs to another garment |
+| `alteration_description_required` / `_too_long` | 422 | Description missing or over 500 characters |
+| `alteration_due_date_invalid` | 422 | Unparseable due date |
+| `alteration_status_invalid` | 422 | Unknown alteration status |
+| `alteration_create_failed` / `alteration_update_failed` | 500 | Write failure; the transaction is rolled back |
+| `quality_garment_required` | 422 | No garment supplied, or it does not exist in this workspace |
+| `quality_check_not_found` | 404 | No such check in the active workspace |
+| `quality_result_invalid` | 422 | Result other than `passed`, `failed` or `needs_rework` |
+| `quality_checked_at_invalid` | 422 | Unparseable check time |
+| `quality_notes_too_long` | 422 | Notes over 2000 characters |
+| `quality_create_failed` | 500 | Write failure |
+
 ## Route requirements
 
 Every route must define:
@@ -244,3 +412,6 @@ Use server-to-server authentication for external WordPress connectors. Never put
 - Application routes and experiences (frontend): Section 10.
 - Security and authorization requirements: [`SECURITY.md`](SECURITY.md).
 - Phase 1 implementation notes and limitations: [`PHASE_1_PLAN.md`](PHASE_1_PLAN.md).
+- Phase 2 implementation notes and limitations: [`PHASE_2_PLAN.md`](PHASE_2_PLAN.md).
+- Phase 3 implementation notes and limitations: [`PHASE_3_PLAN.md`](PHASE_3_PLAN.md).
+- Phase 4 implementation notes and limitations: [`PHASE_4_PLAN.md`](PHASE_4_PLAN.md).

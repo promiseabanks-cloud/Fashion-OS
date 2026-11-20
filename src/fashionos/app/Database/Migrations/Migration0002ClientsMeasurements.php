@@ -11,7 +11,6 @@ namespace FashionOS\Database\Migrations;
 
 use FashionOS\Database\Migration;
 use FashionOS\Database\Tables;
-use FashionOS\Tenancy\Roles;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -165,39 +164,6 @@ final class Migration0002ClientsMeasurements implements Migration {
 
 		dbDelta( $queries );
 
-		$this->sync_role_permissions( $db );
-	}
-
-	/**
-	 * Give the existing system roles the permissions Phase 2 introduces.
-	 *
-	 * Roles were copied into each workspace by migration 0001 with its fixed
-	 * permission lists, so a later phase cannot rely on `Roles::defaults()`
-	 * alone. Owners hold `*` and are untouched; system roles are re-seeded from
-	 * the catalogue (there is no role-editing UI, so nothing is overwritten by
-	 * this).
-	 *
-	 * @param \wpdb $db Database handle.
-	 */
-	private function sync_role_permissions( \wpdb $db ): void {
-		$roles   = Tables::roles();
-		$tenants = $db->get_col( "SELECT DISTINCT tenant_id FROM {$roles}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name comes from $wpdb->prefix.
-
-		if ( ! is_array( $tenants ) ) {
-			return;
-		}
-
-		foreach ( $tenants as $tenant_id ) {
-			foreach ( Roles::defaults() as $slug => $definition ) {
-				$db->query(
-					$db->prepare(
-						"UPDATE {$roles} SET permissions_json = %s WHERE tenant_id = %d AND slug = %s AND is_system = 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name comes from $wpdb->prefix.
-						wp_json_encode( array_values( $definition['permissions'] ) ),
-						(int) $tenant_id,
-						(string) $slug
-					)
-				);
-			}
-		}
+		RoleSync::reseed( $db );
 	}
 }

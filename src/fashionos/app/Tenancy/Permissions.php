@@ -68,6 +68,76 @@ final class Permissions {
 	public const MEASUREMENTS_MANAGE = 'measurements.manage';
 
 	/**
+	 * See designs and their measurement references.
+	 */
+	public const DESIGNS_VIEW = 'designs.view';
+
+	/**
+	 * Create, edit and archive designs.
+	 */
+	public const DESIGNS_MANAGE = 'designs.manage';
+
+	/**
+	 * See quotations and their line items.
+	 */
+	public const QUOTATIONS_VIEW = 'quotations.view';
+
+	/**
+	 * Create and edit quotations.
+	 */
+	public const QUOTATIONS_MANAGE = 'quotations.manage';
+
+	/**
+	 * See orders, garments and their activity history.
+	 */
+	public const ORDERS_VIEW = 'orders.view';
+
+	/**
+	 * Create orders and move garments through production.
+	 */
+	public const ORDERS_MANAGE = 'orders.manage';
+
+	/**
+	 * See production stages, jobs and the production dashboard.
+	 */
+	public const PRODUCTION_VIEW = 'production.view';
+
+	/**
+	 * Configure stages and manage jobs and tasks.
+	 */
+	public const PRODUCTION_MANAGE = 'production.manage';
+
+	/**
+	 * See the material catalogue, stock and allocations.
+	 */
+	public const MATERIALS_VIEW = 'materials.view';
+
+	/**
+	 * Manage materials, stock movements and garment allocations.
+	 */
+	public const MATERIALS_MANAGE = 'materials.manage';
+
+	/**
+	 * See fittings and alterations.
+	 */
+	public const FITTINGS_VIEW = 'fittings.view';
+
+	/**
+	 * Schedule fittings and manage alterations.
+	 */
+	public const FITTINGS_MANAGE = 'fittings.manage';
+
+	/**
+	 * See quality-control records.
+	 */
+	public const QUALITY_VIEW = 'quality.view';
+
+	/**
+	 * Record quality-control results.
+	 */
+	public const QUALITY_MANAGE = 'quality.manage';
+
+	/**
 	 * All permission keys.
 	 *
 	 * @return string[]
@@ -83,6 +153,20 @@ final class Permissions {
 			self::CLIENTS_MANAGE,
 			self::MEASUREMENTS_VIEW,
 			self::MEASUREMENTS_MANAGE,
+			self::DESIGNS_VIEW,
+			self::DESIGNS_MANAGE,
+			self::QUOTATIONS_VIEW,
+			self::QUOTATIONS_MANAGE,
+			self::ORDERS_VIEW,
+			self::ORDERS_MANAGE,
+			self::PRODUCTION_VIEW,
+			self::PRODUCTION_MANAGE,
+			self::MATERIALS_VIEW,
+			self::MATERIALS_MANAGE,
+			self::FITTINGS_VIEW,
+			self::FITTINGS_MANAGE,
+			self::QUALITY_VIEW,
+			self::QUALITY_MANAGE,
 		);
 	}
 }

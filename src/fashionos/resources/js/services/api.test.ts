@@ -123,4 +123,151 @@ describe('createApiClient', () => {
     expect(captured?.init?.body).toBe('{"values":{"chest":94},"unit":"cm"}');
     expect(new Headers(captured?.init?.headers).get(WORKSPACE_HEADER)).toBe('3');
   });
+
+  it('builds design filters and omits page one', async () => {
+    let captured = '';
+
+    const fetchImpl: typeof fetch = async (input) => {
+      captured = String(input);
+      return new Response(JSON.stringify({ success: true, data: { designs: [] } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.designs({
+      search: 'ivory suit',
+      status: 'draft',
+      clientId: 2,
+      page: 2,
+      perPage: 10,
+    });
+
+    expect(captured).toBe(
+      'https://example.test/wp-json/fashionos/v1/designs?search=ivory+suit&status=draft&client_id=2&page=2&per_page=10'
+    );
+
+    await client.designs({ page: 1 });
+
+    expect(captured).toBe('https://example.test/wp-json/fashionos/v1/designs');
+  });
+
+  it('posts quotation lines without computing totals on the client', async () => {
+    let captured: { url: string; init?: RequestInit } | undefined;
+
+    const fetchImpl: typeof fetch = async (input, init) => {
+      captured = { url: String(input), init };
+      return new Response(JSON.stringify({ success: true, data: { id: 9 } }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.createQuotation({
+      clientId: 4,
+      items: [{ description: 'Wedding jacket', quantity: 1, unitPrice: '380000' }],
+    });
+
+    expect(captured?.url).toBe('https://example.test/wp-json/fashionos/v1/quotations');
+    expect(captured?.init?.method).toBe('POST');
+    expect(captured?.init?.body).toBe(
+      '{"clientId":4,"items":[{"description":"Wedding jacket","quantity":1,"unitPrice":"380000"}]}'
+    );
+  });
+
+  it('updates one garment and adds an order note on their own routes', async () => {
+    const calls: Array<{ url: string; method?: string }> = [];
+
+    const fetchImpl: typeof fetch = async (input, init) => {
+      calls.push({ url: String(input), method: init?.method });
+      return new Response(JSON.stringify({ success: true, data: { id: 1 } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.updateOrderItem(7, { status: 'cutting' });
+    await client.addOrderNote(3, 'Customer approved the lining.');
+
+    expect(calls).toEqual([
+      { url: 'https://example.test/wp-json/fashionos/v1/order-items/7', method: 'PATCH' },
+      { url: 'https://example.test/wp-json/fashionos/v1/orders/3/events', method: 'POST' },
+    ]);
+  });
+
+  it('builds production job filters and completes a task on its own route', async () => {
+    const calls: Array<{ url: string; method?: string; body?: unknown }> = [];
+
+    const fetchImpl: typeof fetch = async (input, init) => {
+      calls.push({ url: String(input), method: init?.method, body: init?.body });
+      return new Response(JSON.stringify({ success: true, data: { id: 1 } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.productionJobs({ status: 'in_progress', page: 2, perPage: 10 });
+    await client.updateProductionTask(4, { status: 'done' });
+
+    expect(calls[0]?.url).toBe(
+      'https://example.test/wp-json/fashionos/v1/production/jobs?status=in_progress&page=2&per_page=10'
+    );
+    expect(calls[1]).toEqual({
+      url: 'https://example.test/wp-json/fashionos/v1/production/tasks/4',
+      method: 'PATCH',
+      body: '{"status":"done"}',
+    });
+  });
+
+  it('sends the supply source when allocating material to a garment', async () => {
+    let captured: { url: string; init?: RequestInit } | undefined;
+
+    const fetchImpl: typeof fetch = async (input, init) => {
+      captured = { url: String(input), init };
+      return new Response(JSON.stringify({ success: true, data: { allocations: [] } }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.allocateMaterial(9, {
+      materialId: 3,
+      quantity: '2.5',
+      source: 'customer_supplied',
+    });
+
+    expect(captured?.url).toBe('https://example.test/wp-json/fashionos/v1/order-items/9/materials');
+    expect(captured?.init?.method).toBe('POST');
+    expect(captured?.init?.body).toBe(
+      '{"materialId":3,"quantity":"2.5","source":"customer_supplied"}'
+    );
+  });
+
+  it('schedules a fitting on the fittings route', async () => {
+    let captured = '';
+
+    const fetchImpl: typeof fetch = async (input) => {
+      captured = String(input);
+      return new Response(JSON.stringify({ success: true, data: { id: 5 } }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.createFitting({ orderItemId: 2, scheduledAt: '2026-12-01 10:00:00' });
+
+    expect(captured).toBe('https://example.test/wp-json/fashionos/v1/fittings');
+  });
 });
