@@ -13,6 +13,10 @@ import type {
   AuditEntry,
   Client,
   Design,
+  Expense,
+  FinanceSummary,
+  Invoice,
+  InvoiceItem,
   MeasurementField,
   MeasurementProfile,
   MeasurementProfileDetail,
@@ -25,6 +29,7 @@ import type {
   Order,
   OrderEvent,
   OrderItem,
+  Payment,
   Fitting,
   PlatformTenant,
   ProductionDashboard,
@@ -69,6 +74,12 @@ const roles: Role[] = [
       'clients.manage',
       'measurements.view',
       'measurements.manage',
+      'invoices.view',
+      'invoices.manage',
+      'payments.view',
+      'payments.manage',
+      'expenses.view',
+      'expenses.manage',
     ],
   },
   {
@@ -88,7 +99,23 @@ const roles: Role[] = [
     name: 'Tailor / production',
     permissions: ['workspace.view', 'clients.view', 'measurements.view'],
   },
-  { slug: 'finance', name: 'Finance', permissions: ['workspace.view', 'clients.view'] },
+  {
+    slug: 'finance',
+    name: 'Finance',
+    permissions: [
+      'workspace.view',
+      'clients.view',
+      'quotations.view',
+      'orders.view',
+      'production.view',
+      'invoices.view',
+      'invoices.manage',
+      'payments.view',
+      'payments.manage',
+      'expenses.view',
+      'expenses.manage',
+    ],
+  },
 ];
 
 const users = [
@@ -1864,6 +1891,377 @@ function presentTemplate(template: StoredTemplate): MeasurementTemplate {
   return { ...template };
 }
 
+/* -------------------------------------------------------------------------- */
+/* Finance: invoices, payments and expenses                                   */
+/* -------------------------------------------------------------------------- */
+
+type StoredInvoice = {
+  id: number;
+  tenantId: number;
+  uuid: string;
+  reference: string;
+  clientId: number;
+  orderId: number;
+  currency: string;
+  status: string;
+  issueDate: string;
+  dueDate: string;
+  notes: string;
+  subtotal: number;
+  total: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type StoredInvoiceItem = InvoiceItem & { tenantId: number; invoiceId: number };
+
+type StoredPayment = {
+  id: number;
+  tenantId: number;
+  uuid: string;
+  reference: string;
+  invoiceId: number;
+  clientId: number;
+  amount: number;
+  method: string;
+  provider: string;
+  providerReference: string;
+  status: string;
+  idempotencyKey: string;
+  paidAt: string;
+  verifiedBy: number;
+  verifiedAt: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type StoredExpense = Expense & { tenantId: number };
+
+const EXPENSE_CATEGORIES = [
+  'materials',
+  'rent',
+  'salaries',
+  'utilities',
+  'transport',
+  'marketing',
+  'equipment',
+  'other',
+];
+
+let nextInvoiceId = 4;
+let nextInvoiceItemId = 6;
+let nextPaymentId = 3;
+let nextExpenseId = 4;
+
+const invoices: StoredInvoice[] = [
+  {
+    id: 1,
+    tenantId: 1,
+    uuid: 'aa1c2d3e-0000-4000-8000-000000000001',
+    reference: 'I-0001',
+    clientId: 1,
+    orderId: 1,
+    currency: 'NGN',
+    status: 'issued',
+    issueDate: '2026-11-17',
+    dueDate: '2026-11-30',
+    notes: '50% deposit received. Balance due before collection.',
+    subtotal: 515000,
+    total: 515000,
+    createdAt: '2026-11-17 09:30:00',
+    updatedAt: '2026-11-18 14:25:00',
+  },
+  {
+    id: 2,
+    tenantId: 1,
+    uuid: 'aa1c2d3e-0000-4000-8000-000000000002',
+    reference: 'I-0002',
+    clientId: 2,
+    orderId: 0,
+    currency: 'NGN',
+    status: 'draft',
+    issueDate: '2026-11-19',
+    dueDate: '',
+    notes: '',
+    subtotal: 310000,
+    total: 310000,
+    createdAt: '2026-11-19 11:00:00',
+    updatedAt: '2026-11-19 11:00:00',
+  },
+  {
+    id: 3,
+    tenantId: 2,
+    uuid: 'aa1c2d3e-0000-4000-8000-000000000003',
+    reference: 'I-0001',
+    clientId: 4,
+    orderId: 0,
+    currency: 'NGN',
+    status: 'issued',
+    issueDate: '2026-10-28',
+    dueDate: '2026-11-05',
+    notes: '',
+    subtotal: 250000,
+    total: 250000,
+    createdAt: '2026-10-28 10:00:00',
+    updatedAt: '2026-10-28 10:00:00',
+  },
+];
+
+const invoiceItems: StoredInvoiceItem[] = [
+  {
+    id: 1,
+    tenantId: 1,
+    invoiceId: 1,
+    description: 'Wedding jacket',
+    quantity: 1,
+    unitPrice: 380000,
+    lineTotal: 380000,
+  },
+  {
+    id: 2,
+    tenantId: 1,
+    invoiceId: 1,
+    description: 'Wedding trousers',
+    quantity: 1,
+    unitPrice: 100000,
+    lineTotal: 100000,
+  },
+  {
+    id: 3,
+    tenantId: 1,
+    invoiceId: 1,
+    description: 'Silk shirt',
+    quantity: 1,
+    unitPrice: 35000,
+    lineTotal: 35000,
+  },
+  {
+    id: 4,
+    tenantId: 1,
+    invoiceId: 2,
+    description: 'Charcoal two-piece suit',
+    quantity: 1,
+    unitPrice: 310000,
+    lineTotal: 310000,
+  },
+  {
+    id: 5,
+    tenantId: 2,
+    invoiceId: 3,
+    description: 'Reception gown',
+    quantity: 1,
+    unitPrice: 250000,
+    lineTotal: 250000,
+  },
+];
+
+const payments: StoredPayment[] = [
+  {
+    id: 1,
+    tenantId: 1,
+    uuid: 'bb2c3d4e-0000-4000-8000-000000000001',
+    reference: 'P-0001',
+    invoiceId: 1,
+    clientId: 1,
+    amount: 200000,
+    method: 'transfer',
+    provider: 'gtbank',
+    providerReference: 'GTB-8842190',
+    status: 'verified',
+    idempotencyKey: 'seed-payment-1',
+    paidAt: '2026-11-18 10:15:00',
+    verifiedBy: 1,
+    verifiedAt: '2026-11-18 14:25:00',
+    notes: 'Deposit for the wedding suit.',
+    createdAt: '2026-11-18 10:20:00',
+    updatedAt: '2026-11-18 14:25:00',
+  },
+  {
+    id: 2,
+    tenantId: 1,
+    uuid: 'bb2c3d4e-0000-4000-8000-000000000002',
+    reference: 'P-0002',
+    invoiceId: 1,
+    clientId: 1,
+    amount: 50000,
+    method: 'cash',
+    provider: '',
+    providerReference: '',
+    status: 'pending',
+    idempotencyKey: 'seed-payment-2',
+    paidAt: '2026-11-19 16:40:00',
+    verifiedBy: 0,
+    verifiedAt: '',
+    notes: 'Second instalment, to be confirmed against the ledger.',
+    createdAt: '2026-11-19 16:45:00',
+    updatedAt: '2026-11-19 16:45:00',
+  },
+];
+
+const expenses: StoredExpense[] = [
+  {
+    id: 1,
+    tenantId: 1,
+    uuid: 'cc3d4e5f-0000-4000-8000-000000000001',
+    reference: 'E-0001',
+    category: 'materials',
+    description: 'Ivory wool and silk lining',
+    amount: 85000,
+    currency: 'NGN',
+    spentAt: '2026-11-12',
+    status: 'recorded',
+    notes: '',
+    createdBy: 1,
+    createdByName: 'Ada Obi',
+    createdAt: '2026-11-12 12:00:00',
+    updatedAt: '2026-11-12 12:00:00',
+  },
+  {
+    id: 2,
+    tenantId: 1,
+    uuid: 'cc3d4e5f-0000-4000-8000-000000000002',
+    reference: 'E-0002',
+    category: 'rent',
+    description: 'November studio rent',
+    amount: 150000,
+    currency: 'NGN',
+    spentAt: '2026-11-01',
+    status: 'recorded',
+    notes: 'Paid by transfer.',
+    createdBy: 1,
+    createdByName: 'Ada Obi',
+    createdAt: '2026-11-01 09:00:00',
+    updatedAt: '2026-11-01 09:00:00',
+  },
+  {
+    id: 3,
+    tenantId: 2,
+    uuid: 'cc3d4e5f-0000-4000-8000-000000000003',
+    reference: 'E-0001',
+    category: 'utilities',
+    description: 'Electricity and water',
+    amount: 42000,
+    currency: 'NGN',
+    spentAt: '2026-11-08',
+    status: 'recorded',
+    notes: '',
+    createdBy: 3,
+    createdByName: 'Ngozi Eze',
+    createdAt: '2026-11-08 15:00:00',
+    updatedAt: '2026-11-08 15:00:00',
+  },
+];
+
+function invoiceFor(tenantId: number, invoiceId: number): StoredInvoice | undefined {
+  return invoices.find((invoice) => invoice.tenantId === tenantId && invoice.id === invoiceId);
+}
+
+function invoiceItemsFor(tenantId: number, invoiceId: number): StoredInvoiceItem[] {
+  return invoiceItems
+    .filter((item) => item.tenantId === tenantId && item.invoiceId === invoiceId)
+    .sort((left, right) => left.id - right.id);
+}
+
+function paymentsFor(tenantId: number, invoiceId: number): StoredPayment[] {
+  return payments
+    .filter((payment) => payment.tenantId === tenantId && payment.invoiceId === invoiceId)
+    .sort((left, right) => left.id - right.id);
+}
+
+function verifiedTotal(tenantId: number, invoiceId: number): number {
+  return money(
+    paymentsFor(tenantId, invoiceId)
+      .filter((payment) => payment.status === 'verified')
+      .reduce((sum, payment) => sum + payment.amount, 0)
+  );
+}
+
+function invoiceStatus(invoice: StoredInvoice): string {
+  if (invoice.status === 'draft' || invoice.status === 'void') {
+    return invoice.status;
+  }
+
+  const paid = verifiedTotal(invoice.tenantId, invoice.id);
+
+  if (paid >= invoice.total) {
+    return 'paid';
+  }
+
+  return paid > 0 ? 'partially_paid' : 'issued';
+}
+
+function presentPayment(payment: StoredPayment): Payment {
+  const invoice = invoiceFor(payment.tenantId, payment.invoiceId);
+
+  return {
+    id: payment.id,
+    uuid: payment.uuid,
+    reference: payment.reference,
+    invoiceId: payment.invoiceId,
+    invoiceReference: invoice?.reference ?? '',
+    invoiceStatus: invoice ? invoiceStatus(invoice) : '',
+    clientId: payment.clientId,
+    clientName: clientFor(payment.tenantId, payment.clientId)?.name ?? '',
+    amount: payment.amount,
+    method: payment.method,
+    provider: payment.provider,
+    providerReference: payment.providerReference,
+    status: payment.status,
+    paidAt: payment.paidAt,
+    verifiedBy: payment.verifiedBy,
+    verifiedByName: users.find((user) => user.id === payment.verifiedBy)?.name ?? '',
+    verifiedAt: payment.verifiedAt,
+    notes: payment.notes,
+    createdAt: payment.createdAt,
+    updatedAt: payment.updatedAt,
+  };
+}
+
+function presentInvoice(invoice: StoredInvoice): Invoice {
+  const items = invoiceItemsFor(invoice.tenantId, invoice.id);
+  const amountPaid = verifiedTotal(invoice.tenantId, invoice.id);
+  const balance = money(invoice.total - amountPaid);
+  const status = invoiceStatus(invoice);
+  const today = nowStamp().slice(0, 10);
+
+  return {
+    id: invoice.id,
+    uuid: invoice.uuid,
+    reference: invoice.reference,
+    clientId: invoice.clientId,
+    clientName: clientFor(invoice.tenantId, invoice.clientId)?.name ?? '',
+    clientReference: clientFor(invoice.tenantId, invoice.clientId)?.reference ?? '',
+    orderId: invoice.orderId,
+    orderReference: orderFor(invoice.tenantId, invoice.orderId)?.reference ?? '',
+    currency: invoice.currency,
+    status,
+    issueDate: invoice.issueDate,
+    dueDate: invoice.dueDate,
+    overdue: invoice.dueDate !== '' && invoice.dueDate < today && balance > 0 && status !== 'void',
+    notes: invoice.notes,
+    subtotal: invoice.subtotal,
+    total: invoice.total,
+    amountPaid,
+    balance,
+    itemCount: items.length,
+    items: items.map((item) => ({
+      id: item.id,
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      lineTotal: item.lineTotal,
+    })),
+    payments: paymentsFor(invoice.tenantId, invoice.id).map(presentPayment),
+    createdAt: invoice.createdAt,
+    updatedAt: invoice.updatedAt,
+  };
+}
+
+function presentExpense(expense: StoredExpense): Expense {
+  return withoutTenant(expense);
+}
+
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,
@@ -1895,8 +2293,8 @@ async function handle(url: URL, request: Request): Promise<Response> {
 
   if (path === '/system/health' && method === 'GET') {
     return ok({
-      pluginVersion: '0.5.0',
-      database: { latestVersion: '0004', applied: 4, pending: 0 },
+      pluginVersion: '0.6.0',
+      database: { latestVersion: '0005', applied: 5, pending: 0 },
       build: { built: true, development: true },
       server: { php: '8.3.0', wordpress: '6.8' },
     });
@@ -4899,6 +5297,779 @@ async function handle(url: URL, request: Request): Promise<Response> {
     }
 
     return ok(presentCheck(check), 201);
+  }
+
+  if (path === '/invoices' && method === 'GET') {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const search = url.searchParams.get('search')?.trim().toLowerCase() ?? '';
+    const status = url.searchParams.get('status') ?? 'all';
+    const clientId = Number(url.searchParams.get('client_id') ?? 0);
+    const overdueOnly = ['1', 'true'].includes(url.searchParams.get('overdue') ?? '');
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+    const perPage = Math.min(100, Math.max(1, Number(url.searchParams.get('per_page') ?? 25)));
+    const today = nowStamp().slice(0, 10);
+
+    const matches = invoices
+      .filter((invoice) => invoice.tenantId === active.tenant.id)
+      .map(presentInvoice)
+      .filter((invoice) => (status === 'all' ? true : invoice.status === status))
+      .filter((invoice) => (clientId > 0 ? invoice.clientId === clientId : true))
+      .filter((invoice) => (overdueOnly ? invoice.overdue && invoice.dueDate < today : true))
+      .filter((invoice) =>
+        search === ''
+          ? true
+          : invoice.reference.toLowerCase().includes(search) ||
+            invoice.clientName.toLowerCase().includes(search) ||
+            invoice.orderReference.toLowerCase().includes(search)
+      )
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+
+    const start = (page - 1) * perPage;
+
+    return ok({
+      invoices: matches.slice(start, start + perPage),
+      page,
+      perPage,
+      total: matches.length,
+      totalPages: matches.length > 0 ? Math.ceil(matches.length / perPage) : 0,
+    });
+  }
+
+  if (path === '/invoices' && method === 'POST') {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const input = (body ?? {}) as {
+      clientId?: number;
+      orderId?: number;
+      issueDate?: string;
+      dueDate?: string;
+      notes?: string;
+      items?: Array<{
+        description?: string;
+        quantity?: number | string;
+        unitPrice?: number | string;
+      }>;
+    };
+    const orderId = Number(input.orderId ?? 0);
+    const order = orderId > 0 ? orderFor(active.tenant.id, orderId) : undefined;
+
+    if (orderId > 0 && !order) {
+      return fail('order_not_found', 'That order could not be found.', 404);
+    }
+
+    let clientId = Number(input.clientId ?? 0) || order?.clientId || 0;
+
+    if (order && Number(input.clientId ?? 0) > 0 && order.clientId !== Number(input.clientId)) {
+      return fail('invoice_order_mismatch', 'That order belongs to a different customer.', 422);
+    }
+
+    const customer = clientFor(active.tenant.id, clientId);
+
+    if (!customer) {
+      return fail('invoice_client_required', 'Choose the customer this invoice is for.', 422);
+    }
+
+    clientId = customer.id;
+
+    let lines = Array.isArray(input.items) ? input.items : [];
+
+    if (lines.length === 0 && order) {
+      lines = orderItemsFor(active.tenant.id, order.id).map((item) => ({
+        description: item.garmentName || 'Garment',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      }));
+    }
+
+    if (lines.length === 0) {
+      return fail('invoice_items_required', 'Add at least one line to the invoice.', 422);
+    }
+
+    const priced: StoredInvoiceItem[] = [];
+
+    for (const line of lines) {
+      const description = String(line.description ?? '').trim();
+      const quantity = Number(line.quantity ?? 1);
+      const unitPrice = Number(line.unitPrice ?? 0);
+
+      if (!description) {
+        return fail(
+          'invoice_item_description_required',
+          'Give each invoice line a description.',
+          422
+        );
+      }
+
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) {
+        return fail(
+          'invoice_item_quantity_invalid',
+          'Quantities must be whole numbers between 1 and 9999.',
+          422
+        );
+      }
+
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        return fail(
+          'invoice_item_price_invalid',
+          'Prices must be amounts between 0 and 9,999,999.99.',
+          422
+        );
+      }
+
+      priced.push({
+        id: nextInvoiceItemId++,
+        tenantId: active.tenant.id,
+        invoiceId: 0,
+        description,
+        quantity,
+        unitPrice: money(unitPrice),
+        lineTotal: money(quantity * unitPrice),
+      });
+    }
+
+    const issueDate = String(input.issueDate ?? '') || nowStamp().slice(0, 10);
+    const dueDate = String(input.dueDate ?? '');
+
+    if (dueDate !== '' && dueDate < issueDate) {
+      return fail('invoice_due_date_invalid', 'The due date cannot be before the issue date.', 422);
+    }
+
+    const id = nextInvoiceId++;
+    const total = money(priced.reduce((sum, line) => sum + line.lineTotal, 0));
+
+    const invoice: StoredInvoice = {
+      id,
+      tenantId: active.tenant.id,
+      uuid: crypto.randomUUID(),
+      reference: `I-${String(id).padStart(4, '0')}`,
+      clientId,
+      orderId,
+      currency: active.tenant.currency,
+      status: 'draft',
+      issueDate,
+      dueDate,
+      notes: String(input.notes ?? '').trim(),
+      subtotal: total,
+      total,
+      createdAt: nowStamp(),
+      updatedAt: nowStamp(),
+    };
+
+    priced.forEach((line) => {
+      line.invoiceId = id;
+      invoiceItems.push(line);
+    });
+    invoices.push(invoice);
+    record(
+      active.tenant.id,
+      'invoice.created',
+      { reference: invoice.reference, clientId, orderId, items: priced.length, total },
+      'invoice',
+      id
+    );
+
+    return ok(presentInvoice(invoice), 201);
+  }
+
+  const invoiceMatch = /^\/invoices\/(\d+)$/.exec(path);
+
+  if (invoiceMatch) {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const invoice = invoiceFor(active.tenant.id, Number(invoiceMatch[1]));
+
+    if (!invoice) {
+      return fail('invoice_not_found', 'That invoice could not be found.', 404);
+    }
+
+    if (method === 'GET') {
+      return ok(presentInvoice(invoice));
+    }
+
+    if (method === 'PATCH') {
+      const input = (body ?? {}) as {
+        status?: string;
+        issueDate?: string;
+        dueDate?: string;
+        notes?: string;
+        items?: Array<{
+          description?: string;
+          quantity?: number | string;
+          unitPrice?: number | string;
+        }>;
+      };
+      const changed: string[] = [];
+      const paid = verifiedTotal(invoice.tenantId, invoice.id);
+
+      if (typeof input.status === 'string') {
+        if (!['draft', 'issued', 'void'].includes(input.status)) {
+          return fail(
+            'invoice_status_invalid',
+            'A paid or partially paid invoice is set by its payments, so choose draft, issued or void.',
+            422
+          );
+        }
+
+        if (invoice.status === 'void') {
+          return fail('invoice_void', 'A void invoice cannot be reopened.', 409);
+        }
+
+        if (input.status === 'draft' && invoice.status !== 'draft') {
+          return fail(
+            'invoice_status_invalid',
+            'An issued invoice cannot return to draft. Void it and issue a new one instead.',
+            409
+          );
+        }
+
+        if (invoiceStatus(invoice) !== invoice.status) {
+          return fail(
+            'invoice_has_payments',
+            'This invoice has verified payments; record a correction instead of changing its status.',
+            409
+          );
+        }
+
+        if (input.status === 'void' && paid > 0) {
+          return fail(
+            'invoice_has_payments',
+            'This invoice has verified payments and cannot be voided.',
+            409
+          );
+        }
+
+        if (input.status === 'issued' && invoice.total <= 0) {
+          return fail(
+            'invoice_total_required',
+            'Add at least one priced line before issuing the invoice.',
+            422
+          );
+        }
+
+        invoice.status = input.status;
+        changed.push('status');
+      }
+
+      if (typeof input.issueDate === 'string' && input.issueDate !== '') {
+        invoice.issueDate = input.issueDate;
+        changed.push('issue_date');
+      }
+
+      if (typeof input.dueDate === 'string') {
+        invoice.dueDate = input.dueDate;
+        changed.push('due_date');
+      }
+
+      if (typeof input.notes === 'string') {
+        invoice.notes = input.notes.trim();
+        changed.push('notes');
+      }
+
+      if (invoice.dueDate !== '' && invoice.dueDate < invoice.issueDate) {
+        return fail(
+          'invoice_due_date_invalid',
+          'The due date cannot be before the issue date.',
+          422
+        );
+      }
+
+      if (Array.isArray(input.items)) {
+        if (invoice.status !== 'draft') {
+          return fail(
+            'invoice_locked',
+            'Only a draft invoice can change its lines. Void this invoice and issue a new one instead.',
+            409
+          );
+        }
+
+        if (input.items.length === 0) {
+          return fail('invoice_items_required', 'Add at least one line to the invoice.', 422);
+        }
+
+        const replacement: StoredInvoiceItem[] = input.items.map((line) => {
+          const quantity = Number(line.quantity ?? 1);
+          const unitPrice = Number(line.unitPrice ?? 0);
+
+          return {
+            id: nextInvoiceItemId++,
+            tenantId: invoice.tenantId,
+            invoiceId: invoice.id,
+            description: String(line.description ?? '').trim(),
+            quantity,
+            unitPrice: money(unitPrice),
+            lineTotal: money(quantity * unitPrice),
+          };
+        });
+
+        for (let index = invoiceItems.length - 1; index >= 0; index -= 1) {
+          if (
+            invoiceItems[index].tenantId === invoice.tenantId &&
+            invoiceItems[index].invoiceId === invoice.id
+          ) {
+            invoiceItems.splice(index, 1);
+          }
+        }
+
+        invoiceItems.push(...replacement);
+        invoice.subtotal = money(replacement.reduce((sum, line) => sum + line.lineTotal, 0));
+        invoice.total = invoice.subtotal;
+        changed.push('items');
+      }
+
+      invoice.updatedAt = nowStamp();
+      record(active.tenant.id, 'invoice.updated', { changed }, 'invoice', invoice.id);
+
+      return ok(presentInvoice(invoice));
+    }
+  }
+
+  if (path === '/payments' && method === 'GET') {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const invoiceId = Number(url.searchParams.get('invoice_id') ?? 0);
+    const status = url.searchParams.get('status') ?? 'all';
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+    const perPage = Math.min(100, Math.max(1, Number(url.searchParams.get('per_page') ?? 25)));
+
+    const matches = payments
+      .filter((payment) => payment.tenantId === active.tenant.id)
+      .filter((payment) => (invoiceId > 0 ? payment.invoiceId === invoiceId : true))
+      .filter((payment) => (status === 'all' ? true : payment.status === status))
+      .map(presentPayment)
+      .sort((left, right) => right.paidAt.localeCompare(left.paidAt));
+
+    const start = (page - 1) * perPage;
+
+    return ok({
+      payments: matches.slice(start, start + perPage),
+      page,
+      perPage,
+      total: matches.length,
+      totalPages: matches.length > 0 ? Math.ceil(matches.length / perPage) : 0,
+    });
+  }
+
+  if (path === '/payments' && method === 'POST') {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const input = (body ?? {}) as {
+      invoiceId?: number;
+      amount?: number | string;
+      method?: string;
+      provider?: string;
+      providerReference?: string;
+      paidAt?: string;
+      notes?: string;
+      idempotencyKey?: string;
+    };
+    const key = String(input.idempotencyKey ?? '').trim() || `auto-${crypto.randomUUID()}`;
+    const duplicate = payments.find(
+      (payment) => payment.tenantId === active.tenant.id && payment.idempotencyKey === key
+    );
+
+    if (duplicate) {
+      return ok(presentPayment(duplicate));
+    }
+
+    const invoiceId = Number(input.invoiceId ?? 0);
+    const invoice = invoiceFor(active.tenant.id, invoiceId);
+
+    if (!invoice) {
+      return fail('invoice_not_found', 'That invoice could not be found.', 404);
+    }
+
+    if (invoice.status === 'void') {
+      return fail('invoice_void', 'That invoice has been voided and cannot take payments.', 409);
+    }
+
+    if (invoice.status === 'draft') {
+      return fail(
+        'invoice_not_issued',
+        'Issue the invoice before recording a payment against it.',
+        409
+      );
+    }
+
+    if (invoiceStatus(invoice) === 'paid') {
+      return fail('invoice_not_payable', 'This invoice is already settled.', 409);
+    }
+
+    const amount = money(Number(input.amount ?? 0));
+    const balance = money(invoice.total - verifiedTotal(invoice.tenantId, invoice.id));
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return fail('payment_amount_invalid', 'Enter the amount received, greater than zero.', 422);
+    }
+
+    if (amount > balance) {
+      return fail(
+        'payment_exceeds_balance',
+        'That payment is more than the invoice balance. Record the amount actually owed.',
+        422
+      );
+    }
+
+    const paymentMethod = String(input.method ?? 'transfer');
+
+    if (!['cash', 'transfer', 'card', 'pos'].includes(paymentMethod)) {
+      return fail('payment_method_invalid', 'Choose cash, transfer, card or POS.', 422);
+    }
+
+    const id = nextPaymentId++;
+    const payment: StoredPayment = {
+      id,
+      tenantId: active.tenant.id,
+      uuid: crypto.randomUUID(),
+      reference: `P-${String(id).padStart(4, '0')}`,
+      invoiceId: invoice.id,
+      clientId: invoice.clientId,
+      amount,
+      method: paymentMethod,
+      provider: String(input.provider ?? ''),
+      providerReference: String(input.providerReference ?? ''),
+      status: 'pending',
+      idempotencyKey: key,
+      paidAt: String(input.paidAt ?? '') || nowStamp(),
+      verifiedBy: 0,
+      verifiedAt: '',
+      notes: String(input.notes ?? ''),
+      createdAt: nowStamp(),
+      updatedAt: nowStamp(),
+    };
+
+    payments.push(payment);
+    record(
+      active.tenant.id,
+      'payment.recorded',
+      { reference: payment.reference, invoiceId: invoice.id, amount, method: paymentMethod },
+      'payment',
+      id
+    );
+
+    return ok(presentPayment(payment), 201);
+  }
+
+  const paymentMatch = /^\/payments\/(\d+)$/.exec(path);
+
+  if (paymentMatch) {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const payment = payments.find(
+      (item) => item.tenantId === active.tenant.id && item.id === Number(paymentMatch[1])
+    );
+
+    if (!payment) {
+      return fail('payment_not_found', 'That payment could not be found.', 404);
+    }
+
+    if (method === 'GET') {
+      return ok(presentPayment(payment));
+    }
+
+    if (method === 'PATCH') {
+      const input = (body ?? {}) as { status?: string };
+      const status = String(input.status ?? '');
+
+      if (!['verified', 'rejected'].includes(status)) {
+        return fail('payment_status_invalid', 'A payment can only be verified or rejected.', 422);
+      }
+
+      if (payment.status !== 'pending') {
+        return fail(
+          'payment_locked',
+          'This payment has already been decided and cannot be changed. Record a new payment instead.',
+          409
+        );
+      }
+
+      if (status === 'verified') {
+        const invoice = invoiceFor(payment.tenantId, payment.invoiceId);
+
+        if (invoice && !['issued', 'partially_paid'].includes(invoiceStatus(invoice))) {
+          return fail(
+            'invoice_not_payable',
+            'This invoice is no longer open, so the payment cannot be verified.',
+            409
+          );
+        }
+
+        const balance = invoice
+          ? money(invoice.total - verifiedTotal(payment.tenantId, invoice.id))
+          : 0;
+
+        if (invoice && payment.amount > balance) {
+          return fail(
+            'payment_exceeds_balance',
+            'Verifying this payment would overpay the invoice, because another payment was verified first.',
+            422
+          );
+        }
+      }
+
+      payment.status = status;
+      payment.verifiedBy = status === 'verified' ? CURRENT_USER : 0;
+      payment.verifiedAt = status === 'verified' ? nowStamp() : '';
+      payment.updatedAt = nowStamp();
+
+      record(
+        active.tenant.id,
+        status === 'verified' ? 'payment.verified' : 'payment.rejected',
+        { invoiceId: payment.invoiceId, status },
+        'payment',
+        payment.id
+      );
+
+      return ok(presentPayment(payment));
+    }
+  }
+
+  if (path === '/expenses' && method === 'GET') {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const search = url.searchParams.get('search')?.trim().toLowerCase() ?? '';
+    const category = url.searchParams.get('category') ?? 'all';
+    const status = url.searchParams.get('status') ?? 'all';
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+    const perPage = Math.min(100, Math.max(1, Number(url.searchParams.get('per_page') ?? 25)));
+
+    const matches = expenses
+      .filter((expense) => expense.tenantId === active.tenant.id)
+      .filter((expense) => (category === 'all' ? true : expense.category === category))
+      .filter((expense) => (status === 'all' ? true : expense.status === status))
+      .filter((expense) =>
+        search === ''
+          ? true
+          : expense.description.toLowerCase().includes(search) ||
+            expense.reference.toLowerCase().includes(search)
+      )
+      .sort((left, right) => right.spentAt.localeCompare(left.spentAt) || right.id - left.id);
+
+    const start = (page - 1) * perPage;
+
+    return ok({
+      expenses: matches.slice(start, start + perPage).map(presentExpense),
+      categories: EXPENSE_CATEGORIES,
+      page,
+      perPage,
+      total: matches.length,
+      totalPages: matches.length > 0 ? Math.ceil(matches.length / perPage) : 0,
+    });
+  }
+
+  if (path === '/expenses' && method === 'POST') {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const input = (body ?? {}) as {
+      category?: string;
+      description?: string;
+      amount?: number | string;
+      spentAt?: string;
+      notes?: string;
+    };
+    const category = String(input.category ?? '');
+    const description = String(input.description ?? '').trim();
+    const amount = money(Number(input.amount ?? 0));
+
+    if (!EXPENSE_CATEGORIES.includes(category)) {
+      return fail('expense_category_invalid', 'Choose a category for the expense.', 422);
+    }
+
+    if (description === '') {
+      return fail('expense_description_required', 'Describe what the expense was for.', 422);
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return fail('expense_amount_invalid', 'Enter the amount spent, greater than zero.', 422);
+    }
+
+    const id = nextExpenseId++;
+    const expense: StoredExpense = {
+      id,
+      tenantId: active.tenant.id,
+      uuid: crypto.randomUUID(),
+      reference: `E-${String(id).padStart(4, '0')}`,
+      category,
+      description,
+      amount,
+      currency: active.tenant.currency,
+      spentAt: String(input.spentAt ?? '') || nowStamp().slice(0, 10),
+      status: 'recorded',
+      notes: String(input.notes ?? ''),
+      createdBy: CURRENT_USER,
+      createdByName: users.find((user) => user.id === CURRENT_USER)?.name ?? '',
+      createdAt: nowStamp(),
+      updatedAt: nowStamp(),
+    };
+
+    expenses.push(expense);
+    record(
+      active.tenant.id,
+      'expense.recorded',
+      { reference: expense.reference, category, amount },
+      'expense',
+      id
+    );
+
+    return ok(presentExpense(expense), 201);
+  }
+
+  const expenseMatch = /^\/expenses\/(\d+)$/.exec(path);
+
+  if (expenseMatch) {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const expense = expenses.find(
+      (item) => item.tenantId === active.tenant.id && item.id === Number(expenseMatch[1])
+    );
+
+    if (!expense) {
+      return fail('expense_not_found', 'That expense could not be found.', 404);
+    }
+
+    if (method === 'GET') {
+      return ok(presentExpense(expense));
+    }
+
+    if (method === 'PATCH') {
+      const input = (body ?? {}) as {
+        category?: string;
+        description?: string;
+        amount?: number | string;
+        spentAt?: string;
+        notes?: string;
+        status?: string;
+      };
+
+      if (expense.status === 'void') {
+        return fail('expense_void', 'A void expense cannot be changed.', 409);
+      }
+
+      if (typeof input.category === 'string') {
+        if (!EXPENSE_CATEGORIES.includes(input.category)) {
+          return fail('expense_category_invalid', 'Choose a category for the expense.', 422);
+        }
+
+        expense.category = input.category;
+      }
+
+      if (typeof input.description === 'string') {
+        expense.description = input.description.trim();
+      }
+
+      if (input.amount !== undefined) {
+        expense.amount = money(Number(input.amount));
+      }
+
+      if (typeof input.spentAt === 'string' && input.spentAt !== '') {
+        expense.spentAt = input.spentAt;
+      }
+
+      if (typeof input.notes === 'string') {
+        expense.notes = input.notes;
+      }
+
+      if (typeof input.status === 'string') {
+        if (input.status !== 'void') {
+          return fail('expense_status_invalid', 'An expense can only be voided.', 422);
+        }
+
+        expense.status = 'void';
+      }
+
+      expense.updatedAt = nowStamp();
+      record(active.tenant.id, 'expense.updated', {}, 'expense', expense.id);
+
+      return ok(presentExpense(expense));
+    }
+  }
+
+  if (path === '/finance/summary' && method === 'GET') {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const today = nowStamp().slice(0, 10);
+    const monthStart = `${today.slice(0, 7)}-01`;
+    const currency = active.tenant.currency;
+    const workspaceInvoices = invoices
+      .filter((invoice) => invoice.tenantId === active.tenant.id)
+      .map(presentInvoice);
+    const open = workspaceInvoices.filter((invoice) =>
+      ['issued', 'partially_paid'].includes(invoice.status)
+    );
+    const summary: FinanceSummary = {
+      currency,
+      today,
+      outstanding: money(open.reduce((sum, invoice) => sum + invoice.balance, 0)),
+      invoicedOpen: money(open.reduce((sum, invoice) => sum + invoice.total, 0)),
+      overdue: open.filter((invoice) => invoice.dueDate !== '' && invoice.dueDate < today).length,
+      drafts: workspaceInvoices.filter((invoice) => invoice.status === 'draft').length,
+      paidInvoices: workspaceInvoices.filter((invoice) => invoice.status === 'paid').length,
+      collectedThisMonth: money(
+        payments
+          .filter(
+            (payment) =>
+              payment.tenantId === active.tenant.id &&
+              payment.status === 'verified' &&
+              payment.paidAt.slice(0, 7) === today.slice(0, 7)
+          )
+          .reduce((sum, payment) => sum + payment.amount, 0)
+      ),
+      expensesThisMonth: money(
+        expenses
+          .filter(
+            (expense) =>
+              expense.tenantId === active.tenant.id &&
+              expense.status === 'recorded' &&
+              expense.spentAt >= monthStart &&
+              expense.spentAt <= today
+          )
+          .reduce((sum, expense) => sum + expense.amount, 0)
+      ),
+      pendingPayments: {
+        count: payments.filter(
+          (payment) => payment.tenantId === active.tenant.id && payment.status === 'pending'
+        ).length,
+        total: money(
+          payments
+            .filter(
+              (payment) => payment.tenantId === active.tenant.id && payment.status === 'pending'
+            )
+            .reduce((sum, payment) => sum + payment.amount, 0)
+        ),
+      },
+      recentPayments: payments
+        .filter((payment) => payment.tenantId === active.tenant.id)
+        .slice()
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .slice(0, 5)
+        .map(presentPayment),
+      overdueInvoices: open
+        .filter((invoice) => invoice.dueDate !== '' && invoice.dueDate < today)
+        .sort((left, right) => left.dueDate.localeCompare(right.dueDate))
+        .slice(0, 5),
+    };
+
+    return ok(summary);
   }
 
   if (path === '/audit' && method === 'GET') {

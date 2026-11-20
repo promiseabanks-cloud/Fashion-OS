@@ -13,10 +13,14 @@ use FashionOS\API\Controllers\AuditController;
 use FashionOS\API\Controllers\AuthController;
 use FashionOS\API\Controllers\ClientController;
 use FashionOS\API\Controllers\DesignController;
+use FashionOS\API\Controllers\ExpenseController;
+use FashionOS\API\Controllers\FinanceController;
 use FashionOS\API\Controllers\FittingController;
+use FashionOS\API\Controllers\InvoiceController;
 use FashionOS\API\Controllers\MaterialController;
 use FashionOS\API\Controllers\MeasurementController;
 use FashionOS\API\Controllers\OrderController;
+use FashionOS\API\Controllers\PaymentController;
 use FashionOS\API\Controllers\ProductionController;
 use FashionOS\API\Controllers\QualityController;
 use FashionOS\API\Controllers\QuotationController;
@@ -31,12 +35,15 @@ use FashionOS\Database\Migrator;
 use FashionOS\Database\Repositories\AuditLogRepository;
 use FashionOS\Database\Repositories\ClientRepository;
 use FashionOS\Database\Repositories\DesignRepository;
+use FashionOS\Database\Repositories\ExpenseRepository;
 use FashionOS\Database\Repositories\FittingRepository;
+use FashionOS\Database\Repositories\InvoiceRepository;
 use FashionOS\Database\Repositories\MaterialRepository;
 use FashionOS\Database\Repositories\MeasurementRepository;
 use FashionOS\Database\Repositories\MeasurementTemplateRepository;
 use FashionOS\Database\Repositories\MembershipRepository;
 use FashionOS\Database\Repositories\OrderRepository;
+use FashionOS\Database\Repositories\PaymentRepository;
 use FashionOS\Database\Repositories\ProductionRepository;
 use FashionOS\Database\Repositories\QualityRepository;
 use FashionOS\Database\Repositories\QuotationRepository;
@@ -44,6 +51,10 @@ use FashionOS\Database\Repositories\RoleRepository;
 use FashionOS\Database\Repositories\TenantRepository;
 use FashionOS\Database\Transaction;
 use FashionOS\Designs\DesignService;
+use FashionOS\Finance\ExpenseService;
+use FashionOS\Finance\FinanceService;
+use FashionOS\Finance\InvoiceService;
+use FashionOS\Finance\PaymentService;
 use FashionOS\Fittings\FittingService;
 use FashionOS\Inventory\MaterialService;
 use FashionOS\Measurements\MeasurementService;
@@ -148,6 +159,9 @@ final class Plugin {
 		$materials    = new MaterialRepository();
 		$fittings     = new FittingRepository();
 		$quality      = new QualityRepository();
+		$invoices     = new InvoiceRepository();
+		$payments     = new PaymentRepository();
+		$expenses     = new ExpenseRepository();
 		$transactions = new Transaction();
 		$staff        = new Staff( $memberships );
 
@@ -162,6 +176,10 @@ final class Plugin {
 		$material_service    = new MaterialService( $materials, $audit, $transactions );
 		$fitting_service     = new FittingService( $fittings, $orders, $staff, $audit, $transactions );
 		$quality_service     = new QualityService( $quality, $orders, $audit, $transactions );
+		$invoice_service     = new InvoiceService( $invoices, $clients, $orders, $payments, $audit, $transactions );
+		$payment_service     = new PaymentService( $payments, $invoices, $audit, $transactions );
+		$expense_service     = new ExpenseService( $expenses, $audit, $transactions );
+		$finance_service     = new FinanceService( $invoices, $payments, $expenses );
 
 		$this->controllers = array(
 			new SystemController( new Migrator(), new Assets() ),
@@ -177,6 +195,10 @@ final class Plugin {
 			new MaterialController( $material_service, $resolver ),
 			new FittingController( $fitting_service, $resolver ),
 			new QualityController( $quality_service, $resolver ),
+			new InvoiceController( $invoice_service, $resolver ),
+			new PaymentController( $payment_service, $resolver ),
+			new ExpenseController( $expense_service, $resolver ),
+			new FinanceController( $finance_service, $resolver ),
 			new AuditController( $audit, $resolver ),
 			new PlatformController( $tenants, $audit ),
 		);

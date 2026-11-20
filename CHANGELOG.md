@@ -8,6 +8,23 @@ This changelog records **implementation history**. Approved changes to the found
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-20
+
+### Added
+
+- **Phase 5: Finance.**
+  - Migration `0005`: `fos_invoices`, `fos_invoice_items`, `fos_payments` and `fos_expenses`, with tenant-first indexes and no foreign keys.
+  - Invoices (`I-0001`) priced either from an order's garments or from explicit lines. Line totals, the invoice total, `amountPaid` and `balance` are always computed on the server.
+  - Invoice lifecycle `draft → issued → partially_paid → paid`, with `void`; `partially_paid` and `paid` are derived from payments and cannot be set by hand. Lines can only be replaced while the invoice is a draft.
+  - Payments (`P-0001`) recorded against an issued invoice, starting `pending` and moving the balance only once verified. Methods are `cash`, `transfer`, `card` and `pos`, with optional provider reference fields for reconciliation.
+  - Idempotent payments: every payment carries an idempotency key, unique per workspace (`auto-` generated when the caller omits one), so a repeated request returns the original payment instead of recording the money twice.
+  - Balance reconciliation inside the verification transaction, with overpayment refused both when recording and when verifying.
+  - Expenses with fixed categories, voiding instead of deleting, and a finance summary covering outstanding balance, overdue invoices, monthly collections, monthly expenses and payments awaiting verification.
+  - Finance view with dashboard tiles, overdue list, invoice builder and detail, printable invoice document (browser print stylesheet), payment recording and verification, and expense management.
+  - Permission keys `invoices.*`, `payments.*` and `expenses.*`, with migration `0005` re-seeding existing system roles.
+  - WordPress test-library suite in `tests/php/FinanceTest.php` (written; not yet executed — see `docs/PHASE_5_PLAN.md`).
+  - Documentation: `docs/PHASE_5_PLAN.md`; API reference, schema, README files and plugin readme updated.
+
 ## [0.5.0] - 2026-11-19
 
 ### Added

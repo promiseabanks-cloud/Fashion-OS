@@ -138,6 +138,36 @@ final class Permissions {
 	public const QUALITY_MANAGE = 'quality.manage';
 
 	/**
+	 * See invoices, balances and the finance summary.
+	 */
+	public const INVOICES_VIEW = 'invoices.view';
+
+	/**
+	 * Create, issue and void invoices.
+	 */
+	public const INVOICES_MANAGE = 'invoices.manage';
+
+	/**
+	 * See payments recorded against invoices.
+	 */
+	public const PAYMENTS_VIEW = 'payments.view';
+
+	/**
+	 * Record and verify payments.
+	 */
+	public const PAYMENTS_MANAGE = 'payments.manage';
+
+	/**
+	 * See studio expenses.
+	 */
+	public const EXPENSES_VIEW = 'expenses.view';
+
+	/**
+	 * Record and void expenses.
+	 */
+	public const EXPENSES_MANAGE = 'expenses.manage';
+
+	/**
 	 * All permission keys.
 	 *
 	 * @return string[]
@@ -167,6 +197,12 @@ final class Permissions {
 			self::FITTINGS_MANAGE,
 			self::QUALITY_VIEW,
 			self::QUALITY_MANAGE,
+			self::INVOICES_VIEW,
+			self::INVOICES_MANAGE,
+			self::PAYMENTS_VIEW,
+			self::PAYMENTS_MANAGE,
+			self::EXPENSES_VIEW,
+			self::EXPENSES_MANAGE,
 		);
 	}
 }

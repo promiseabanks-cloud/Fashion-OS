@@ -270,4 +270,92 @@ describe('createApiClient', () => {
 
     expect(captured).toBe('https://example.test/wp-json/fashionos/v1/fittings');
   });
+
+  it('builds invoice filters without empty parameters', async () => {
+    let captured = '';
+
+    const fetchImpl: typeof fetch = async (input) => {
+      captured = String(input);
+      return new Response(JSON.stringify({ success: true, data: { invoices: [] } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.invoices({
+      search: 'amina',
+      status: 'issued',
+      clientId: 3,
+      overdue: true,
+      page: 2,
+      perPage: 10,
+    });
+
+    expect(captured).toBe(
+      'https://example.test/wp-json/fashionos/v1/invoices?search=amina&status=issued&client_id=3&overdue=1&page=2&per_page=10'
+    );
+
+    await client.invoices();
+
+    expect(captured).toBe('https://example.test/wp-json/fashionos/v1/invoices');
+  });
+
+  it('sends an idempotency key when recording a payment', async () => {
+    let captured: { url: string; init?: RequestInit } | undefined;
+
+    const fetchImpl: typeof fetch = async (input, init) => {
+      captured = { url: String(input), init };
+      return new Response(JSON.stringify({ success: true, data: { id: 8 } }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.createPayment({
+      invoiceId: 4,
+      amount: '250000',
+      method: 'transfer',
+      idempotencyKey: 'attempt-1',
+    });
+
+    expect(captured?.url).toBe('https://example.test/wp-json/fashionos/v1/payments');
+    expect(captured?.init?.method).toBe('POST');
+    expect(captured?.init?.body).toBe(
+      '{"invoiceId":4,"amount":"250000","method":"transfer","idempotencyKey":"attempt-1"}'
+    );
+  });
+
+  it('verifies a payment and voids an expense on their own routes', async () => {
+    const calls: Array<{ url: string; method?: string; body?: unknown }> = [];
+
+    const fetchImpl: typeof fetch = async (input, init) => {
+      calls.push({ url: String(input), method: init?.method, body: init?.body });
+      return new Response(JSON.stringify({ success: true, data: { id: 1 } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const client = createApiClient(config, fetchImpl);
+
+    await client.updatePayment(6, { status: 'verified' });
+    await client.updateExpense(2, { status: 'void' });
+
+    expect(calls).toEqual([
+      {
+        url: 'https://example.test/wp-json/fashionos/v1/payments/6',
+        method: 'PATCH',
+        body: '{"status":"verified"}',
+      },
+      {
+        url: 'https://example.test/wp-json/fashionos/v1/expenses/2',
+        method: 'PATCH',
+        body: '{"status":"void"}',
+      },
+    ]);
+  });
 });

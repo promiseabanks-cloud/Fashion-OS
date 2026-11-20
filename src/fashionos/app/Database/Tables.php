@@ -196,6 +196,34 @@ final class Tables {
 	}
 
 	/**
+	 * Invoices issued to customers.
+	 */
+	public static function invoices(): string {
+		return self::prefix() . 'fos_invoices';
+	}
+
+	/**
+	 * Priced lines inside an invoice.
+	 */
+	public static function invoice_items(): string {
+		return self::prefix() . 'fos_invoice_items';
+	}
+
+	/**
+	 * Payments recorded against an invoice.
+	 */
+	public static function payments(): string {
+		return self::prefix() . 'fos_payments';
+	}
+
+	/**
+	 * Studio expenses and their categories.
+	 */
+	public static function expenses(): string {
+		return self::prefix() . 'fos_expenses';
+	}
+
+	/**
 	 * Configured WordPress table prefix.
 	 */
 	private static function prefix(): string {

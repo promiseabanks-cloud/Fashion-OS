@@ -83,12 +83,13 @@ Material source values: `customer_supplied`, `designer_supplied`, `shared_supply
 
 | Table | Important fields | Purpose |
 |---|---|---|
-| `fos_invoices` | id, tenant_id, client_id, order_id, invoice_number, subtotal, total, due_date, status | Invoices |
-| `fos_invoice_items` | id, tenant_id, invoice_id, description, quantity, unit_price, total | Invoice lines |
-| `fos_payments` | id, tenant_id, invoice_id, amount, payment_method, reference, status, paid_at | Payment records |
-| `fos_expense_categories` | id, tenant_id, name | Expense categories |
-| `fos_expenses` | id, tenant_id, category_id, description, amount, expense_date | Business expenses |
-| `fos_financial_events` | id, tenant_id, event_type, reference_type, reference_id, amount | Financial activity |
+| `fos_invoices` | id, tenant_id, client_id, order_id, reference, currency, subtotal, total, amount_paid, balance, issue_date, due_date, status | Invoices |
+| `fos_invoice_items` | id, tenant_id, invoice_id, description, quantity, unit_price, line_total | Invoice lines |
+| `fos_payments` | id, tenant_id, invoice_id, amount, method, provider_reference, status, idempotency_key, paid_at, verified_by, verified_at | Payment records |
+| `fos_expenses` | id, tenant_id, category, description, amount, currency, spent_at, status | Studio expenses |
+| `fos_financial_events` | id, tenant_id, event_type, reference_type, reference_id, amount | Financial activity (planned) |
+
+Expense categories are a fixed list in `ExpenseService` (`materials`, `rent`, `salaries`, `utilities`, `transport`, `marketing`, `equipment`, `other`) rather than a table, so there is no category editor yet. Payment statuses are `pending`, `verified` and `rejected`; `(tenant_id, idempotency_key)` is unique. `amount_paid` and `balance` on an invoice are recomputed from the lines and verified payments whenever either changes.
 
 Design payment allocation carefully if a payment may cover multiple invoices or an invoice may receive multiple payments. Do not hardwire a one-payment-to-one-invoice assumption if the product requirements evolve to support more complex reconciliation. Model allocations explicitly when needed.
 
@@ -534,3 +535,86 @@ Indexes: primary key, `(tenant_id, order_item_id)`, `(tenant_id, fitting_id)`, `
 Indexes: primary key, `(tenant_id, order_item_id, id)`, `(tenant_id, result)`. Checks are append-only; a failed or rework result also appends an order timeline event.
 
 Migration `0004` also seeds the nine starter stages for every existing workspace and re-seeds the system roles with the eight new `production.*`, `materials.*`, `fittings.*` and `quality.*` permissions.
+
+## Phase 5 — Finance
+
+Migration `0005` adds four tables. Money is `DECIMAL(14,2)`; optional dates use `CHAR(10)` and optional timestamps `CHAR(19)`, both defaulting to `''` rather than `NULL`.
+
+### `{prefix}fos_invoices`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Workspace |
+| `uuid` | `VARCHAR(36)` | Unique public identifier |
+| `reference` | `VARCHAR(20)` | `I-0001`, unique per workspace |
+| `client_id` | `BIGINT UNSIGNED` | Customer |
+| `order_id` | `BIGINT UNSIGNED` | Source order, or 0 |
+| `currency` | `VARCHAR(3)` | Copied from the workspace at creation |
+| `status` | `VARCHAR(20)` | `draft`, `issued`, `partially_paid`, `paid`, `void` |
+| `issue_date`, `due_date` | `CHAR(10)` | `YYYY-MM-DD` or `''` |
+| `subtotal`, `total` | `DECIMAL(14,2)` | Computed from the lines |
+| `amount_paid` | `DECIMAL(14,2)` | Sum of verified payments |
+| `balance` | `DECIMAL(14,2)` | `total - amount_paid` |
+| `notes` | `TEXT NULL` | Customer-facing notes |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, `(tenant_id, client_id)`, `(tenant_id, status)`, `(tenant_id, due_date)`, `(tenant_id, order_id)`.
+
+### `{prefix}fos_invoice_items`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id`, `invoice_id` | `BIGINT UNSIGNED` | Workspace and invoice |
+| `description` | `VARCHAR(191)` | Line description |
+| `quantity` | `INT UNSIGNED` | Whole units, 1–9999 |
+| `unit_price`, `line_total` | `DECIMAL(14,2)` | Server-computed |
+| `sort_order` | `INT UNSIGNED` | Display order |
+
+Index: `(tenant_id, invoice_id)`.
+
+### `{prefix}fos_payments`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Workspace |
+| `uuid` | `VARCHAR(36)` | Unique public identifier |
+| `reference` | `VARCHAR(20)` | `P-0001`, unique per workspace |
+| `invoice_id`, `client_id` | `BIGINT UNSIGNED` | Invoice and its customer |
+| `amount` | `DECIMAL(14,2)` | Amount received |
+| `method` | `VARCHAR(20)` | `cash`, `transfer`, `card`, `pos` |
+| `provider`, `provider_reference` | `VARCHAR(40)` / `VARCHAR(191)` | Bank or POS reconciliation, or `''` |
+| `status` | `VARCHAR(20)` | `pending`, `verified`, `rejected` |
+| `idempotency_key` | `VARCHAR(191)` | Unique per workspace; generated when omitted |
+| `paid_at` | `DATETIME` | When the money was received |
+| `verified_by`, `verified_at` | `BIGINT UNSIGNED` / `CHAR(19)` | Verification stamp |
+| `notes` | `TEXT NULL` | Free text |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, unique `(tenant_id, idempotency_key)`, `(tenant_id, invoice_id, id)`, `(tenant_id, status)`. The idempotency index is what makes a repeated payment callback return the original row instead of recording the money twice.
+
+### `{prefix}fos_expenses`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Workspace |
+| `uuid` | `VARCHAR(36)` | Unique public identifier |
+| `reference` | `VARCHAR(20)` | `E-0001`, unique per workspace |
+| `category` | `VARCHAR(30)` | `materials`, `rent`, `salaries`, `utilities`, `transport`, `marketing`, `equipment`, `other` |
+| `description` | `VARCHAR(191)` | What was bought |
+| `amount` | `DECIMAL(14,2)` | Amount spent |
+| `currency` | `VARCHAR(3)` | Copied from the workspace at creation |
+| `spent_at` | `CHAR(10)` | `YYYY-MM-DD` |
+| `status` | `VARCHAR(20)` | `recorded`, `void` |
+| `notes` | `TEXT NULL` | Free text |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id, or 0 |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, `(tenant_id, category)`, `(tenant_id, spent_at)`. Voided expenses keep their row and drop out of every total.
+
+Migration `0005` also re-seeds the system roles with the six new `invoices.*`, `payments.*` and `expenses.*` permissions.

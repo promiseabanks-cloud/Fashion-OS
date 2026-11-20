@@ -5,6 +5,7 @@ import { CreateWorkspaceForm } from './WorkspaceSetup';
 import { AuditView } from './views/AuditView';
 import { ClientsView } from './views/ClientsView';
 import { DesignsView } from './views/DesignsView';
+import { FinanceView } from './views/FinanceView';
 import { MaterialsView } from './views/MaterialsView';
 import { OrdersView } from './views/OrdersView';
 import { OverviewView } from './views/OverviewView';
@@ -24,6 +25,7 @@ type View =
   | 'orders'
   | 'production'
   | 'materials'
+  | 'finance'
   | 'team'
   | 'settings'
   | 'audit'
@@ -87,6 +89,10 @@ export function Studio({
 
   if (can('materials.view')) {
     navItems.push({ id: 'materials', label: 'Materials' });
+  }
+
+  if (can('invoices.view')) {
+    navItems.push({ id: 'finance', label: 'Finance' });
   }
 
   if (can('team.view')) {
@@ -227,6 +233,9 @@ export function Studio({
           ) : null}
           {current === 'materials' ? (
             <MaterialsView key={`materials-${active.tenant.id}`} client={client} active={active} />
+          ) : null}
+          {current === 'finance' ? (
+            <FinanceView key={`finance-${active.tenant.id}`} client={client} active={active} />
           ) : null}
           {current === 'team' ? (
             <TeamView client={client} active={active} onChanged={onRefresh} />

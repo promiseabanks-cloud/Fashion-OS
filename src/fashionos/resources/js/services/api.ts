@@ -14,11 +14,18 @@ import type {
   Design,
   DesignInput,
   DesignListResponse,
+  Expense,
+  ExpenseInput,
+  ExpenseListResponse,
   FashionOSConfig,
+  FinanceSummary,
   Fitting,
   FittingInput,
   FittingsResponse,
   HealthResponse,
+  Invoice,
+  InvoiceInput,
+  InvoiceListResponse,
   MeasurementProfileDetail,
   MeasurementTemplate,
   MeasurementTemplateInput,
@@ -33,6 +40,9 @@ import type {
   OrderInput,
   OrderItemInput,
   OrderListResponse,
+  Payment,
+  PaymentInput,
+  PaymentListResponse,
   PlatformResponse,
   ProductionDashboard,
   ProductionJob,
@@ -439,5 +449,72 @@ export function createApiClient(
       ),
     createQualityCheck: (input: QualityCheckInput) =>
       mutate<QualityCheck>('quality-checks', 'POST', input),
+
+    /** Invoices, balances and the finance summary. */
+    invoices: (
+      params: {
+        search?: string;
+        status?: string;
+        clientId?: number;
+        overdue?: boolean;
+        page?: number;
+        perPage?: number;
+      } = {}
+    ) =>
+      request<InvoiceListResponse>(
+        `invoices${filters({
+          search: params.search,
+          status: params.status,
+          client_id: params.clientId,
+          overdue: params.overdue ? 1 : undefined,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    invoice: (invoiceId: number) => request<Invoice>(`invoices/${invoiceId}`),
+    createInvoice: (input: InvoiceInput) => mutate<Invoice>('invoices', 'POST', input),
+    updateInvoice: (invoiceId: number, input: InvoiceInput) =>
+      mutate<Invoice>(`invoices/${invoiceId}`, 'PATCH', input),
+
+    /** Payments recorded against an invoice, then verified by staff. */
+    payments: (
+      params: { invoiceId?: number; status?: string; page?: number; perPage?: number } = {}
+    ) =>
+      request<PaymentListResponse>(
+        `payments${filters({
+          invoice_id: params.invoiceId,
+          status: params.status,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    createPayment: (input: PaymentInput) => mutate<Payment>('payments', 'POST', input),
+    updatePayment: (paymentId: number, input: PaymentInput) =>
+      mutate<Payment>(`payments/${paymentId}`, 'PATCH', input),
+
+    /** Studio expenses and their categories. */
+    expenses: (
+      params: {
+        search?: string;
+        category?: string;
+        status?: string;
+        page?: number;
+        perPage?: number;
+      } = {}
+    ) =>
+      request<ExpenseListResponse>(
+        `expenses${filters({
+          search: params.search,
+          category: params.category,
+          status: params.status,
+          page: params.page,
+          per_page: params.perPage,
+        })}`
+      ),
+    createExpense: (input: ExpenseInput) => mutate<Expense>('expenses', 'POST', input),
+    updateExpense: (expenseId: number, input: ExpenseInput) =>
+      mutate<Expense>(`expenses/${expenseId}`, 'PATCH', input),
+
+    financeSummary: () => request<FinanceSummary>('finance/summary'),
   };
 }

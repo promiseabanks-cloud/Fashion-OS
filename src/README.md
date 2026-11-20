@@ -32,7 +32,7 @@ src/fashionos/
 └── dev/               development-only preview harness
 ```
 
-Phases 1–4 are implemented: workspaces, membership and tenant-scoped roles, permission policies, an audit trail, customer profiles with preferences, configurable measurement templates, append-only measurement versions, design records, quotations with server-computed totals, orders whose garments each reference a specific measurement version and carry their own production status and timeline, and per-garment production jobs with a configurable stage workflow, stock-tracked materials with explicit supply sources, fittings, alterations and quality checks. `GET /fashionos/v1/auth/me` bootstraps the session, `X-FashionOS-Workspace` selects a workspace (validated against membership), and every tenant route is scoped and authorized on the server.
+Phases 1–5 are implemented: workspaces, membership and tenant-scoped roles, permission policies, an audit trail, customer profiles with preferences, configurable measurement templates, append-only measurement versions, design records, quotations with server-computed totals, orders whose garments each reference a specific measurement version and carry their own production status and timeline, per-garment production jobs with a configurable stage workflow, stock-tracked materials with explicit supply sources, fittings, alterations and quality checks, and invoices with verified, idempotent payments and categorised expenses. `GET /fashionos/v1/auth/me` bootstraps the session, `X-FashionOS-Workspace` selects a workspace (validated against membership), and every tenant route is scoped and authorized on the server.
 
 - Setup and commands: [`../docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md)
 - Release steps: [`../docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md)
@@ -41,5 +41,6 @@ Phases 1–4 are implemented: workspaces, membership and tenant-scoped roles, pe
 - Phase 2 plan and results: [`../docs/PHASE_2_PLAN.md`](../docs/PHASE_2_PLAN.md)
 - Phase 3 plan and results: [`../docs/PHASE_3_PLAN.md`](../docs/PHASE_3_PLAN.md)
 - Phase 4 plan and results: [`../docs/PHASE_4_PLAN.md`](../docs/PHASE_4_PLAN.md)
+- Phase 5 plan and results: [`../docs/PHASE_5_PLAN.md`](../docs/PHASE_5_PLAN.md)
 
 See Section 5 of the [Master Technical Specification](../FashionOS_Master_Technical_Specification.md) for the intended plugin and React application structure.

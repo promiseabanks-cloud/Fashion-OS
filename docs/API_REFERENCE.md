@@ -385,6 +385,76 @@ Dates use `YYYY-MM-DD`; timestamps use `YYYY-MM-DD HH:MM:SS` in UTC.
 | `quality_notes_too_long` | 422 | Notes over 2000 characters |
 | `quality_create_failed` | 500 | Write failure |
 
+## Implemented in Phase 5
+
+Invoice, payment, expense and finance-summary routes. Every route uses the same workspace header, nonce and permission checks as the earlier phases, and every record is read and written inside the active workspace.
+
+| Method | Route | Permission | Notes |
+|---|---|---|---|
+| `GET` | `/invoices` | `invoices.view` | `?search=` (reference, customer, order), `?status=draft\|issued\|partially_paid\|paid\|void\|all`, `?client_id=`, `?overdue=1`, `?page=`, `?per_page=` |
+| `POST` | `/invoices` | `invoices.manage` | Body `{ clientId?, orderId?, issueDate?, dueDate?, notes?, items? }`; without items an order's garments become the lines |
+| `GET` | `/invoices/{id}` | `invoices.view` | Invoice with its lines and payments |
+| `PATCH` | `/invoices/{id}` | `invoices.manage` | Body may contain `status` (`draft`, `issued`, `void`), `issueDate`, `dueDate`, `notes`, and (drafts only) replacement `items` |
+| `GET` | `/payments` | `payments.view` | `?invoice_id=`, `?status=pending\|verified\|rejected\|all`, `?page=`, `?per_page=` |
+| `POST` | `/payments` | `payments.manage` | Body `{ invoiceId, amount, method, provider?, providerReference?, paidAt?, notes?, idempotencyKey? }`; returns `201`, or `200` with the existing payment when the key was already used |
+| `GET` | `/payments/{id}` | `payments.view` | One payment |
+| `PATCH` | `/payments/{id}` | `payments.manage` | Body `{ status: verified\|rejected }`; only a pending payment can be decided |
+| `GET` | `/expenses` | `expenses.view` | `?search=`, `?category=materials\|rent\|salaries\|utilities\|transport\|marketing\|equipment\|other\|all`, `?status=recorded\|void\|all`, `?page=`, `?per_page=` |
+| `POST` | `/expenses` | `expenses.manage` | Body `{ category, description, amount, spentAt?, notes? }` |
+| `GET` | `/expenses/{id}` | `expenses.view` | One expense |
+| `PATCH` | `/expenses/{id}` | `expenses.manage` | Body may contain `category`, `description`, `amount`, `spentAt`, `notes`, `status: void` |
+| `GET` | `/finance/summary` | `invoices.view` | Outstanding, invoiced and open, overdue count, drafts, collected this month, expenses this month, pending payments, recent payments and overdue invoices |
+
+Invoice totals and balances are never accepted from the client: every line total, the invoice total, `amountPaid` and `balance` are computed from the stored lines and the verified payment ledger. `partially_paid` and `paid` are written by payment verification, not by `PATCH`.
+
+A payment is recorded as `pending`. Verifying it recomputes the invoice's `amountPaid`, `balance` and status in the same transaction; rejecting it leaves the balance untouched. Overpayment is refused both when recording and when verifying. `verified` and `rejected` are terminal.
+
+`idempotencyKey` is unique per workspace. When it is omitted the server generates one, so every payment row still carries a key; when a caller supplies a key it has already used, the endpoint returns the original payment with `200`.
+
+Dates use `YYYY-MM-DD`; timestamps use `YYYY-MM-DD HH:MM:SS` in UTC.
+
+### Phase 5 error codes
+
+| Code | Status | Meaning |
+|---|---|---|
+| `invoice_not_found` | 404 | No such invoice in the active workspace |
+| `invoice_client_required` | 422 | No customer supplied, or it does not exist in this workspace |
+| `invoice_order_mismatch` | 422 | The cited order belongs to a different customer |
+| `invoice_items_required` / `invoice_item_invalid` | 422 | No lines, or a line that is not an object |
+| `invoice_item_description_required` / `_too_long` | 422 | Line description missing or over 191 characters |
+| `invoice_item_quantity_invalid` / `invoice_item_price_invalid` | 422 | Quantity not 1–9999, or price not 0–9,999,999.99 |
+| `invoice_too_many_items` | 422 | More than 100 lines |
+| `invoice_date_invalid` / `invoice_due_date_invalid` | 422 | Unparseable date, or a due date before the issue date |
+| `invoice_notes_too_long` | 422 | Notes over 2000 characters |
+| `invoice_status_invalid` | 422 / 409 | A status other than `draft`, `issued` or `void`, or returning an issued invoice to draft |
+| `invoice_total_required` | 422 | Issuing an invoice with no priced lines |
+| `invoice_locked` | 409 | Lines changed after the invoice left draft |
+| `invoice_void` | 409 | Reopening a void invoice |
+| `invoice_has_payments` | 409 | Voiding or restating an invoice with verified payments |
+| `invoice_create_failed` / `invoice_update_failed` | 500 | Write failure; the transaction is rolled back |
+| `payment_not_found` | 404 | No such payment in the active workspace |
+| `payment_invoice_required` | 422 | No invoice supplied |
+| `invoice_not_issued` | 409 | Recording a payment against a draft invoice |
+| `invoice_not_payable` | 409 | Recording a payment against a settled invoice |
+| `payment_amount_invalid` | 422 | Amount missing, zero or not a positive amount |
+| `payment_exceeds_balance` | 422 | The amount is more than the outstanding balance, when recording or verifying |
+| `payment_method_invalid` | 422 | Method other than `cash`, `transfer`, `card` or `pos` |
+| `payment_paid_at_invalid` | 422 | Unparseable payment time |
+| `payment_idempotency_key_invalid` | 422 | Key over 191 characters |
+| `payment_status_invalid` | 422 | A status other than `verified` or `rejected` |
+| `payment_locked` | 409 | Deciding a payment that was already decided |
+| `payment_notes_too_long` | 422 | Notes over 2000 characters |
+| `payment_create_failed` / `payment_update_failed` | 500 | Write failure; the transaction is rolled back |
+| `expense_not_found` | 404 | No such expense in the active workspace |
+| `expense_category_invalid` | 422 | Category outside the fixed list |
+| `expense_description_required` / `_too_long` | 422 | Description missing or over 191 characters |
+| `expense_amount_invalid` | 422 | Amount missing, zero or not a positive amount |
+| `expense_date_invalid` | 422 | Unparseable spent date |
+| `expense_notes_too_long` | 422 | Notes over 2000 characters |
+| `expense_status_invalid` | 422 | A status other than `void` |
+| `expense_void` | 409 | Editing a void expense |
+| `expense_create_failed` / `expense_update_failed` | 500 | Write failure; the transaction is rolled back |
+
 ## Route requirements
 
 Every route must define:
@@ -415,3 +485,4 @@ Use server-to-server authentication for external WordPress connectors. Never put
 - Phase 2 implementation notes and limitations: [`PHASE_2_PLAN.md`](PHASE_2_PLAN.md).
 - Phase 3 implementation notes and limitations: [`PHASE_3_PLAN.md`](PHASE_3_PLAN.md).
 - Phase 4 implementation notes and limitations: [`PHASE_4_PLAN.md`](PHASE_4_PLAN.md).
+- Phase 5 implementation notes and limitations: [`PHASE_5_PLAN.md`](PHASE_5_PLAN.md).

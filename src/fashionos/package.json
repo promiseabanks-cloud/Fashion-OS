@@ -1,6 +1,6 @@
 {
   "name": "fashionos",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "FashionOS React application, built with Vite and served by the FashionOS WordPress plugin.",
   "type": "module",

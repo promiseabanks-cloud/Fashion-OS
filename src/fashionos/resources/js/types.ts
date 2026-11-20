@@ -754,3 +754,158 @@ export type ProductionDashboard = {
   recentFailures: QualityCheck[];
   lowStock: Material[];
 };
+
+/* -------------------------------------------------------------------------- */
+/* Phase 5: finance                                                           */
+/* -------------------------------------------------------------------------- */
+
+export type InvoiceItem = {
+  id: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+export type Payment = {
+  id: number;
+  uuid: string;
+  reference: string;
+  invoiceId: number;
+  invoiceReference: string;
+  invoiceStatus: string;
+  clientId: number;
+  clientName: string;
+  amount: number;
+  method: string;
+  provider: string;
+  providerReference: string;
+  status: string;
+  paidAt: string;
+  verifiedBy: number;
+  verifiedByName: string;
+  verifiedAt: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Invoice = {
+  id: number;
+  uuid: string;
+  reference: string;
+  clientId: number;
+  clientName: string;
+  clientReference: string;
+  orderId: number;
+  orderReference: string;
+  currency: string;
+  status: string;
+  issueDate: string;
+  dueDate: string;
+  overdue: boolean;
+  notes: string;
+  subtotal: number;
+  total: number;
+  amountPaid: number;
+  balance: number;
+  itemCount: number;
+  items: InvoiceItem[];
+  payments: Payment[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InvoiceListResponse = {
+  invoices: Invoice[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type InvoiceItemInput = {
+  description: string;
+  quantity: number | string;
+  unitPrice: number | string;
+};
+
+export type InvoiceInput = {
+  clientId?: number;
+  orderId?: number;
+  status?: string;
+  issueDate?: string;
+  dueDate?: string;
+  notes?: string;
+  items?: InvoiceItemInput[];
+};
+
+export type PaymentListResponse = {
+  payments: Payment[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PaymentInput = {
+  invoiceId?: number;
+  amount?: number | string;
+  method?: string;
+  provider?: string;
+  providerReference?: string;
+  paidAt?: string;
+  notes?: string;
+  idempotencyKey?: string;
+  status?: string;
+};
+
+export type Expense = {
+  id: number;
+  uuid: string;
+  reference: string;
+  category: string;
+  description: string;
+  amount: number;
+  currency: string;
+  spentAt: string;
+  status: string;
+  notes: string;
+  createdBy: number;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExpenseListResponse = {
+  expenses: Expense[];
+  categories: string[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type ExpenseInput = {
+  category?: string;
+  description?: string;
+  amount?: number | string;
+  spentAt?: string;
+  notes?: string;
+  status?: string;
+};
+
+export type FinanceSummary = {
+  currency: string;
+  today: string;
+  outstanding: number;
+  invoicedOpen: number;
+  overdue: number;
+  drafts: number;
+  paidInvoices: number;
+  collectedThisMonth: number;
+  expensesThisMonth: number;
+  pendingPayments: { count: number; total: number };
+  recentPayments: Payment[];
+  overdueInvoices: Invoice[];
+};

@@ -1091,3 +1091,54 @@
     justify-content: space-between;
   }
 }
+
+.fashionos-pill--pending {
+  background: #efe7db;
+  color: var(--fo-ink-soft);
+}
+
+.fashionos-pill--verified {
+  background: var(--fo-success-soft);
+  color: var(--fo-success);
+}
+
+.fashionos-pill--rejected {
+  background: var(--fo-danger-soft);
+  color: var(--fo-danger);
+}
+
+.fashionos-table__meta--alert {
+  color: var(--fo-danger);
+}
+
+.fashionos-print__client {
+  color: var(--fo-ink-soft);
+  margin: 0 0 0.85rem;
+}
+
+/* Printing shows the invoice document only, so the studio chrome never lands on paper. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .fashionos-print,
+  .fashionos-print * {
+    visibility: visible;
+  }
+
+  .fashionos-print {
+    border: 0;
+    box-shadow: none;
+    left: 0;
+    margin: 0;
+    padding: 1.5rem;
+    position: absolute;
+    top: 0;
+    width: 100%;
+  }
+
+  .fashionos-print .fashionos-panel__header .fashionos-btn {
+    display: none;
+  }
+}

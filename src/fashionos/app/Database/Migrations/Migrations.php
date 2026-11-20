@@ -34,6 +34,7 @@ final class Migrations {
 			new Migration0002ClientsMeasurements(),
 			new Migration0003QuotationsOrders(),
 			new Migration0004ProductionInventory(),
+			new Migration0005Finance(),
 		);
 
 		usort(
