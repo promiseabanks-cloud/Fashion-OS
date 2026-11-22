@@ -210,6 +210,69 @@ final class OrderRepository {
 	}
 
 	/**
+	 * One customer's visible orders, newest first, for the portal.
+	 *
+	 * Draft orders are internal until the studio confirms them, so they are
+	 * excluded by the query rather than filtered afterwards.
+	 *
+	 * @param int $tenant_id Tenant id.
+	 * @param int $client_id Customer id.
+	 * @param int $page      Page number, from 1.
+	 * @param int $per_page  Rows per page.
+	 * @return array{rows: array<int, array<string, mixed>>, total: int}
+	 */
+	public function for_client( int $tenant_id, int $client_id, int $page, int $per_page ): array {
+		if ( $tenant_id <= 0 || $client_id <= 0 ) {
+			return array(
+				'rows'  => array(),
+				'total' => 0,
+			);
+		}
+
+		$from = "{$this->joins()} WHERE o.tenant_id = %d AND o.client_id = %d AND o.status <> 'draft'";
+
+		$total = (int) $this->db->get_var( $this->db->prepare( "SELECT COUNT(*) {$from}", $tenant_id, $client_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names come from $wpdb->prefix.
+
+		$sql = "SELECT o.*, c.name AS client_name, q.reference AS quotation_reference,
+				( SELECT COUNT(*) FROM {$this->items} oi WHERE oi.tenant_id = o.tenant_id AND oi.order_id = o.id ) AS garment_count
+			{$from}
+			ORDER BY o.updated_at DESC, o.id DESC
+			LIMIT %d OFFSET %d";
+
+		$rows = $this->db->get_results(
+			$this->db->prepare( $sql, $tenant_id, $client_id, $per_page, ( $page - 1 ) * $per_page ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names come from $wpdb->prefix.
+			ARRAY_A
+		);
+
+		return array(
+			'rows'  => is_array( $rows ) ? $rows : array(),
+			'total' => $total,
+		);
+	}
+
+	/**
+	 * Count one customer's orders that are still in progress.
+	 *
+	 * @param int $tenant_id Tenant id.
+	 * @param int $client_id Customer id.
+	 */
+	public function active_count( int $tenant_id, int $client_id ): int {
+		if ( $tenant_id <= 0 || $client_id <= 0 ) {
+			return 0;
+		}
+
+		$count = $this->db->get_var(
+			$this->db->prepare(
+				"SELECT COUNT(*) FROM {$this->table} WHERE tenant_id = %d AND client_id = %d AND status IN ( 'confirmed', 'in_progress', 'ready' )", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name comes from $wpdb->prefix.
+				$tenant_id,
+				$client_id
+			)
+		);
+
+		return (int) $count;
+	}
+
+	/**
 	 * Garments of one order.
 	 *
 	 * @param int $tenant_id Tenant id.

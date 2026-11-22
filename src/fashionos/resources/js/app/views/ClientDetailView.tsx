@@ -11,6 +11,7 @@ import type {
 } from '../../types';
 import { Alert, EmptyState, Loading, Panel, Stat, formatDate } from '../ui';
 import { ClientForm } from './ClientForm';
+import { PortalAccessPanel } from './PortalAccessPanel';
 
 /**
  * One customer: contact details and preferences, measurement profiles, and the
@@ -223,6 +224,8 @@ export function ClientDetailView({
               </>
             )}
           </Panel>
+
+          <PortalAccessPanel client={client} clientId={clientId} canManage={canManage} />
 
           <Panel
             title="Measurement profiles"

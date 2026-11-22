@@ -25,6 +25,8 @@ use FashionOS\API\Controllers\ProductionController;
 use FashionOS\API\Controllers\QualityController;
 use FashionOS\API\Controllers\QuotationController;
 use FashionOS\API\Controllers\PlatformController;
+use FashionOS\API\Controllers\PortalAccessController;
+use FashionOS\API\Controllers\PortalController;
 use FashionOS\API\Controllers\SystemController;
 use FashionOS\API\Controllers\TeamController;
 use FashionOS\API\Controllers\TenantController;
@@ -44,6 +46,7 @@ use FashionOS\Database\Repositories\MeasurementTemplateRepository;
 use FashionOS\Database\Repositories\MembershipRepository;
 use FashionOS\Database\Repositories\OrderRepository;
 use FashionOS\Database\Repositories\PaymentRepository;
+use FashionOS\Database\Repositories\PortalAccessRepository;
 use FashionOS\Database\Repositories\ProductionRepository;
 use FashionOS\Database\Repositories\QualityRepository;
 use FashionOS\Database\Repositories\QuotationRepository;
@@ -59,6 +62,9 @@ use FashionOS\Fittings\FittingService;
 use FashionOS\Inventory\MaterialService;
 use FashionOS\Measurements\MeasurementService;
 use FashionOS\Orders\OrderService;
+use FashionOS\Portal\PortalAccessService;
+use FashionOS\Portal\PortalResolver;
+use FashionOS\Portal\PortalService;
 use FashionOS\Production\ProductionService;
 use FashionOS\Production\Staff;
 use FashionOS\Quality\QualityService;
@@ -134,7 +140,10 @@ final class Plugin {
 		$this->maybe_upgrade();
 		$this->register_services();
 
-		( new AppShell( new Assets() ) )->register();
+		$assets = new Assets();
+
+		( new AppShell( $assets ) )->register();
+		( new PortalShell( $assets ) )->register();
 
 		ErrorEnvelope::register();
 
@@ -162,6 +171,7 @@ final class Plugin {
 		$invoices     = new InvoiceRepository();
 		$payments     = new PaymentRepository();
 		$expenses     = new ExpenseRepository();
+		$portal       = new PortalAccessRepository();
 		$transactions = new Transaction();
 		$staff        = new Staff( $memberships );
 
@@ -180,6 +190,9 @@ final class Plugin {
 		$payment_service     = new PaymentService( $payments, $invoices, $audit, $transactions );
 		$expense_service     = new ExpenseService( $expenses, $audit, $transactions );
 		$finance_service     = new FinanceService( $invoices, $payments, $expenses );
+		$portal_service      = new PortalService( $orders, $invoices, $payments );
+		$portal_access       = new PortalAccessService( $portal, $clients, $audit, $transactions );
+		$portal_resolver     = new PortalResolver( $portal, $tenants, $clients );
 
 		$this->controllers = array(
 			new SystemController( new Migrator(), new Assets() ),
@@ -199,6 +212,8 @@ final class Plugin {
 			new PaymentController( $payment_service, $resolver ),
 			new ExpenseController( $expense_service, $resolver ),
 			new FinanceController( $finance_service, $resolver ),
+			new PortalController( $portal_service, $portal_resolver, $resolver ),
+			new PortalAccessController( $portal_access, $resolver ),
 			new AuditController( $audit, $resolver ),
 			new PlatformController( $tenants, $audit ),
 		);

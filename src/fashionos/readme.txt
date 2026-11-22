@@ -4,7 +4,7 @@ Tags: fashion, tailoring, crm, measurements, orders
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 8.1
-Stable tag: 0.6.0
+Stable tag: 0.7.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -28,8 +28,10 @@ quotations with server-computed line totals, and orders whose garments are
 tracked independently, each referencing a specific measurement version and
 carrying its own activity timeline) and Phase 4 (a production job per garment
 with a configurable stage workflow, stock-tracked materials with explicit
-customer/designer ownership, fittings, alterations and quality checks). Finance
-arrives in a later phase as described in docs/DEVELOPMENT_ROADMAP.md.
+customer/designer ownership, fittings, alterations and quality checks), Phase 5
+(invoices with server-computed balances, verified and idempotent payments, and
+categorised expenses) and Phase 6 (a token-based customer portal that shows a
+customer only their own orders, invoices and verified payment status).
 
 == Installation ==
 
@@ -39,6 +41,12 @@ arrives in a later phase as described in docs/DEVELOPMENT_ROADMAP.md.
 4. Create a page containing the `[fashionos_app]` shortcode.
 
 == Changelog ==
+
+= 0.7.0 =
+* Phase 6: client portal migration; hashed, revocable portal links; customer-scoped order, invoice and verified-payment reads; portal application and a staff sharing panel on the customer record.
+
+= 0.6.0 =
+* Phase 5: finance migration; invoices with server-computed balances; verified, idempotent payments; categorised expenses; finance summary and studio view.
 
 = 0.5.0 =
 * Phase 4: production and inventory migration; one job per garment with configurable stages and tasks; material stock ledger with supply source; per-garment fittings, alterations and quality checks; production dashboard and studio views.

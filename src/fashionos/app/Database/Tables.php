@@ -224,6 +224,13 @@ final class Tables {
 	}
 
 	/**
+	 * Customer portal access links.
+	 */
+	public static function portal_access(): string {
+		return self::prefix() . 'fos_portal_access';
+	}
+
+	/**
 	 * Configured WordPress table prefix.
 	 */
 	private static function prefix(): string {

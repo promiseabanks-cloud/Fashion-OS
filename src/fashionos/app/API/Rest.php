@@ -35,12 +35,34 @@ final class Rest {
 	public const WORKSPACE_HEADER = 'X-FashionOS-Workspace';
 
 	/**
+	 * Header carrying a customer portal token.
+	 *
+	 * The token is the customer's only credential: it identifies one workspace
+	 * and one customer, and every portal read is scoped by that pair.
+	 */
+	public const PORTAL_HEADER = 'X-FashionOS-Portal';
+
+	/**
 	 * 401 for missing authentication.
 	 */
 	public static function unauthenticated(): \WP_Error {
 		return new \WP_Error(
 			'not_authenticated',
 			__( 'You must be signed in to access this resource.', 'fashionos' ),
+			array( 'status' => 401 )
+		);
+	}
+
+	/**
+	 * 401 for a portal token that is missing, unknown, revoked or expired.
+	 *
+	 * One error for every failure, so a caller cannot tell a wrong token from
+	 * an expired one, or confirm that a particular link ever existed.
+	 */
+	public static function portal_unauthorized(): \WP_Error {
+		return new \WP_Error(
+			'portal_access_invalid',
+			__( 'This portal link is no longer valid. Ask the studio to send a new one.', 'fashionos' ),
 			array( 'status' => 401 )
 		);
 	}

@@ -185,6 +185,79 @@ final class InvoiceRepository {
 	}
 
 	/**
+	 * One customer's visible invoices, newest first, for the portal.
+	 *
+	 * Drafts have not been sent and void invoices no longer stand, so neither
+	 * belongs in the customer's view.
+	 *
+	 * @param int $tenant_id Tenant id.
+	 * @param int $client_id Customer id.
+	 * @param int $page      Page number, from 1.
+	 * @param int $per_page  Rows per page.
+	 * @return array{rows: array<int, array<string, mixed>>, total: int}
+	 */
+	public function for_client( int $tenant_id, int $client_id, int $page, int $per_page ): array {
+		if ( $tenant_id <= 0 || $client_id <= 0 ) {
+			return array(
+				'rows'  => array(),
+				'total' => 0,
+			);
+		}
+
+		$from = "{$this->joins()} WHERE i.tenant_id = %d AND i.client_id = %d
+			AND i.status IN ( 'issued', 'partially_paid', 'paid' )";
+
+		$total = (int) $this->db->get_var( $this->db->prepare( "SELECT COUNT(*) {$from}", $tenant_id, $client_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names come from $wpdb->prefix.
+
+		$sql = "SELECT i.*, c.name AS client_name, c.reference AS client_reference,
+				o.reference AS order_reference,
+				( SELECT COUNT(*) FROM {$this->items} ii WHERE ii.tenant_id = i.tenant_id AND ii.invoice_id = i.id ) AS item_count
+			{$from}
+			ORDER BY i.issue_date DESC, i.id DESC
+			LIMIT %d OFFSET %d";
+
+		$rows = $this->db->get_results(
+			$this->db->prepare( $sql, $tenant_id, $client_id, $per_page, ( $page - 1 ) * $per_page ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names come from $wpdb->prefix.
+			ARRAY_A
+		);
+
+		return array(
+			'rows'  => is_array( $rows ) ? $rows : array(),
+			'total' => $total,
+		);
+	}
+
+	/**
+	 * Count and outstanding balance of one customer's open invoices.
+	 *
+	 * @param int $tenant_id Tenant id.
+	 * @param int $client_id Customer id.
+	 * @return array{open: int, outstanding: float}
+	 */
+	public function client_summary( int $tenant_id, int $client_id ): array {
+		if ( $tenant_id <= 0 || $client_id <= 0 ) {
+			return array(
+				'open'        => 0,
+				'outstanding' => 0.0,
+			);
+		}
+
+		$row = $this->db->get_row(
+			$this->db->prepare(
+				"SELECT COUNT(*) AS open_invoices, COALESCE( SUM( balance ), 0 ) AS outstanding FROM {$this->table} WHERE tenant_id = %d AND client_id = %d AND status IN ( 'issued', 'partially_paid' )", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name comes from $wpdb->prefix.
+				$tenant_id,
+				$client_id
+			),
+			ARRAY_A
+		);
+
+		return array(
+			'open'        => is_array( $row ) ? (int) ( $row['open_invoices'] ?? 0 ) : 0,
+			'outstanding' => is_array( $row ) ? round( (float) ( $row['outstanding'] ?? 0 ), 2 ) : 0.0,
+		);
+	}
+
+	/**
 	 * Line items of one invoice, in display order.
 	 *
 	 * @param int $tenant_id Tenant id.

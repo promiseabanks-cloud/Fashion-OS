@@ -122,15 +122,6 @@ abstract class Controller {
 	 * @param WP_Error $error Error to send.
 	 */
 	protected function failure( WP_Error $error ): WP_REST_Response {
-		$data    = $error->get_error_data();
-		$data    = is_array( $data ) ? $data : array();
-		$details = isset( $data['details'] ) && is_array( $data['details'] ) ? $data['details'] : array();
-
-		return Response::error(
-			(string) $error->get_error_code(),
-			(string) $error->get_error_message(),
-			(int) ( $data['status'] ?? 400 ),
-			$details
-		);
+		return Response::from_error( $error );
 	}
 }

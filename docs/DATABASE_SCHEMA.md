@@ -618,3 +618,27 @@ Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, unique `(t
 Indexes: primary key, unique `uuid`, unique `(tenant_id, reference)`, `(tenant_id, category)`, `(tenant_id, spent_at)`. Voided expenses keep their row and drop out of every total.
 
 Migration `0005` also re-seeds the system roles with the six new `invoices.*`, `payments.*` and `expenses.*` permissions.
+
+## Phase 6 — Client portal
+
+Migration `0006` adds one table. Only a SHA-256 hash of each portal token is stored, so the table is safe in a database dump, and the unique hash is what lets a portal request carrying nothing but its token resolve its workspace and customer.
+
+### `{prefix}fos_portal_access`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` | Primary key |
+| `tenant_id` | `BIGINT UNSIGNED` | Workspace |
+| `uuid` | `VARCHAR(36)` | Unique public identifier |
+| `client_id` | `BIGINT UNSIGNED` | Customer the link belongs to |
+| `token_hash` | `CHAR(64)` | SHA-256 of the token; unique, never exposed |
+| `label` | `VARCHAR(100)` | Who or what the link was issued for, or `''` |
+| `expires_at` | `CHAR(19)` | `YYYY-MM-DD HH:MM:SS` in UTC, or `''` for no expiry |
+| `revoked_at` | `CHAR(19)` | Revocation stamp, or `''` while active |
+| `last_used_at` | `CHAR(19)` | Last resolved request, refreshed at most hourly |
+| `created_by` | `BIGINT UNSIGNED` | WordPress user id that issued it, or 0 |
+| `created_at`, `updated_at` | `DATETIME` | UTC |
+
+Indexes: primary key, unique `uuid`, unique `token_hash`, `(tenant_id, client_id)`. Revoked and expired links keep their row: access is withdrawn by timestamp, and the audit trail still points at a record.
+
+No permission keys are added in Phase 6: sharing a link reuses `clients.manage`, so migration `0006` does not need a role re-seed.

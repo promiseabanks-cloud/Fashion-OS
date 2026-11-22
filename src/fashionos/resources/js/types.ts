@@ -10,6 +10,10 @@ export type FashionOSConfig = {
   homeUrl: string;
   logoutUrl: string;
   isDevelopment: boolean;
+  /** Set by the portal shell, which renders for customers without a login. */
+  mode?: 'studio' | 'portal';
+  /** Portal token from the link the studio issued. Never sent with studio calls. */
+  portalToken?: string;
   user: {
     id: number;
     displayName: string;
@@ -908,4 +912,121 @@ export type FinanceSummary = {
   pendingPayments: { count: number; total: number };
   recentPayments: Payment[];
   overdueInvoices: Invoice[];
+};
+
+/* -------------------------------------------------------------------------- */
+/* Phase 6: client portal                                                     */
+/* -------------------------------------------------------------------------- */
+
+export type PortalSession = {
+  studio: {
+    name: string;
+    currency: string;
+  };
+  customer: {
+    reference: string;
+    name: string;
+    email: string;
+    phone: string;
+  };
+  access: {
+    expiresAt: string;
+  };
+  summary: {
+    openOrders: number;
+    openInvoices: number;
+    outstanding: number;
+  };
+};
+
+export type PortalGarment = {
+  id: number;
+  garmentName: string;
+  garmentCategory: string;
+  quantity: number;
+  status: string;
+};
+
+export type PortalOrder = {
+  id: number;
+  reference: string;
+  status: string;
+  dueDate: string;
+  garmentCount: number;
+  items: PortalGarment[];
+  updatedAt: string;
+};
+
+export type PortalOrdersResponse = {
+  orders: PortalOrder[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PortalPayment = {
+  reference: string;
+  amount: number;
+  method: string;
+  providerReference: string;
+  paidAt: string;
+};
+
+export type PortalInvoiceLine = {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+export type PortalInvoice = {
+  id: number;
+  reference: string;
+  orderReference: string;
+  currency: string;
+  status: string;
+  issueDate: string;
+  dueDate: string;
+  overdue: boolean;
+  notes: string;
+  total: number;
+  amountPaid: number;
+  balance: number;
+  items: PortalInvoiceLine[];
+  payments: PortalPayment[];
+  issuedAt: string;
+};
+
+export type PortalInvoicesResponse = {
+  invoices: PortalInvoice[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PortalAccess = {
+  id: number;
+  label: string;
+  expiresAt: string;
+  revokedAt: string;
+  lastUsedAt: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type PortalAccessList = {
+  access: PortalAccess[];
+};
+
+export type PortalAccessIssued = {
+  access: PortalAccess;
+  token: string;
+  url: string;
+};
+
+export type PortalAccessInput = {
+  label?: string;
+  expiresInDays?: number;
 };

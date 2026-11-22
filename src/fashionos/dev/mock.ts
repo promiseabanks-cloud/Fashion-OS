@@ -32,6 +32,12 @@ import type {
   Payment,
   Fitting,
   PlatformTenant,
+  PortalAccess,
+  PortalAccessIssued,
+  PortalAccessList,
+  PortalInvoice,
+  PortalOrder,
+  PortalSession,
   ProductionDashboard,
   ProductionJob,
   ProductionStage,
@@ -45,8 +51,11 @@ import type {
   WorkspaceSummary,
 } from '../resources/js/types';
 
+const DEV_PORTAL_TOKEN = 'dev-portal-amina-2026';
+const portalPreview = new URLSearchParams(window.location.search).get('portal') === '1';
+
 const config = {
-  version: '0.5.0-dev',
+  version: '0.7.0-dev',
   restUrl: `${window.location.origin}/mock/fashionos/v1`,
   nonce: 'development-nonce',
   homeUrl: '/',
@@ -55,7 +64,13 @@ const config = {
   user: { id: 1, displayName: 'Ada Obi' },
 };
 
-window.FashionOS = config;
+window.FashionOS = portalPreview
+  ? {
+      ...config,
+      mode: 'portal',
+      portalToken: DEV_PORTAL_TOKEN,
+    }
+  : config;
 
 const CURRENT_USER = 1;
 
@@ -2262,6 +2277,168 @@ function presentExpense(expense: StoredExpense): Expense {
   return withoutTenant(expense);
 }
 
+/* -------------------------------------------------------------------------- */
+/* Client portal: access links and customer-scoped reads                       */
+/* -------------------------------------------------------------------------- */
+
+type StoredPortalAccess = {
+  id: number;
+  tenantId: number;
+  uuid: string;
+  clientId: number;
+  /** Mock only: the PHP implementation stores a SHA-256 hash, never the token. */
+  token: string;
+  label: string;
+  expiresAt: string;
+  revokedAt: string;
+  lastUsedAt: string;
+  createdBy: number;
+  createdAt: string;
+};
+
+let nextPortalAccessId = 2;
+
+const portalAccesses: StoredPortalAccess[] = [
+  {
+    id: 1,
+    tenantId: 1,
+    uuid: 'dd4e5f60-0000-4000-8000-000000000001',
+    clientId: 1,
+    token: DEV_PORTAL_TOKEN,
+    label: 'Order updates',
+    expiresAt: '',
+    revokedAt: '',
+    lastUsedAt: '',
+    createdBy: 1,
+    createdAt: '2026-11-18 09:00:00',
+  },
+];
+
+function presentPortalAccess(access: StoredPortalAccess): PortalAccess {
+  return {
+    id: access.id,
+    label: access.label,
+    expiresAt: access.expiresAt,
+    revokedAt: access.revokedAt,
+    lastUsedAt: access.lastUsedAt,
+    isActive:
+      access.revokedAt === '' && (access.expiresAt === '' || access.expiresAt >= nowStamp()),
+    createdAt: access.createdAt,
+  };
+}
+
+function portalAccessFor(token: string): StoredPortalAccess | undefined {
+  return portalAccesses.find(
+    (access) =>
+      access.token === token &&
+      access.revokedAt === '' &&
+      (access.expiresAt === '' || access.expiresAt >= nowStamp())
+  );
+}
+
+function portalOrder(order: StoredOrder): PortalOrder {
+  const items = orderItemsFor(order.tenantId, order.id);
+
+  return {
+    id: order.id,
+    reference: order.reference,
+    status: order.status,
+    dueDate: order.dueDate,
+    garmentCount: items.length,
+    items: items.map((item) => ({
+      id: item.id,
+      garmentName: item.garmentName,
+      garmentCategory: item.garmentCategory,
+      quantity: item.quantity,
+      status: item.status,
+    })),
+    updatedAt: order.updatedAt,
+  };
+}
+
+function portalInvoice(invoice: StoredInvoice): PortalInvoice {
+  const full = presentInvoice(invoice);
+
+  return {
+    id: full.id,
+    reference: full.reference,
+    orderReference: full.orderReference,
+    currency: full.currency,
+    status: full.status,
+    issueDate: full.issueDate,
+    dueDate: full.dueDate,
+    overdue: full.overdue,
+    notes: full.notes,
+    total: full.total,
+    amountPaid: full.amountPaid,
+    balance: full.balance,
+    items: full.items,
+    payments: full.payments
+      .filter((payment) => payment.status === 'verified')
+      .map((payment) => ({
+        reference: payment.reference,
+        amount: payment.amount,
+        method: payment.method,
+        providerReference: payment.providerReference,
+        paidAt: payment.paidAt,
+      })),
+    issuedAt: full.createdAt,
+  };
+}
+
+function portalSession(access: StoredPortalAccess): PortalSession | null {
+  const tenant = tenants.find((item) => item.id === access.tenantId);
+  const customer = clientFor(access.tenantId, access.clientId);
+
+  if (!tenant || !customer) {
+    return null;
+  }
+
+  const visibleOrders = orders.filter(
+    (order) =>
+      order.tenantId === access.tenantId &&
+      order.clientId === access.clientId &&
+      order.status !== 'draft'
+  );
+  const openInvoices = invoices
+    .filter(
+      (invoice) =>
+        invoice.tenantId === access.tenantId &&
+        invoice.clientId === access.clientId &&
+        ['issued', 'partially_paid'].includes(invoiceStatus(invoice))
+    )
+    .map(presentInvoice);
+
+  return {
+    studio: {
+      name: tenant.name,
+      currency: tenant.currency,
+    },
+    customer: {
+      reference: customer.reference,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+    },
+    access: { expiresAt: access.expiresAt },
+    summary: {
+      openOrders: visibleOrders.filter((order) =>
+        ['confirmed', 'in_progress', 'ready'].includes(order.status)
+      ).length,
+      openInvoices: openInvoices.length,
+      outstanding: money(openInvoices.reduce((sum, invoice) => sum + invoice.balance, 0)),
+    },
+  };
+}
+
+function portalLocked(): Response {
+  return fail(
+    'portal_access_invalid',
+    'This portal link is no longer valid. Ask the studio to send a new one.',
+    401
+  );
+}
+
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,
@@ -2293,8 +2470,8 @@ async function handle(url: URL, request: Request): Promise<Response> {
 
   if (path === '/system/health' && method === 'GET') {
     return ok({
-      pluginVersion: '0.6.0',
-      database: { latestVersion: '0005', applied: 5, pending: 0 },
+      pluginVersion: '0.7.0',
+      database: { latestVersion: '0006', applied: 6, pending: 0 },
       build: { built: true, development: true },
       server: { php: '8.3.0', wordpress: '6.8' },
     });
@@ -2604,6 +2781,121 @@ async function handle(url: URL, request: Request): Promise<Response> {
     );
 
     return ok(presentClient(created), 201);
+  }
+
+  const portalAccessMatch = /^\/clients\/(\d+)\/portal-access$/.exec(path);
+
+  if (portalAccessMatch) {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const clientId = Number(portalAccessMatch[1]);
+    const customer = clientFor(active.tenant.id, clientId);
+
+    if (!customer) {
+      return fail('client_not_found', 'That customer could not be found.', 404);
+    }
+
+    if (method === 'GET') {
+      const list: PortalAccessList = {
+        access: portalAccesses
+          .filter((access) => access.tenantId === active.tenant.id && access.clientId === clientId)
+          .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+          .map(presentPortalAccess),
+      };
+
+      return ok(list);
+    }
+
+    if (method === 'POST') {
+      if (customer.status === 'archived') {
+        return fail(
+          'portal_client_archived',
+          'Restore this customer before sharing a portal link.',
+          409
+        );
+      }
+
+      const input = (body ?? {}) as { label?: string; expiresInDays?: number };
+      const days = Number(input.expiresInDays ?? 0);
+
+      if (!Number.isInteger(days) || days < 0 || days > 365) {
+        return fail(
+          'portal_access_expiry_invalid',
+          'A portal link may last between 0 and 365 days.',
+          422
+        );
+      }
+
+      const token = `${crypto.randomUUID().replace(/-/g, '')}${crypto
+        .randomUUID()
+        .replace(/-/g, '')}`;
+      const access: StoredPortalAccess = {
+        id: nextPortalAccessId++,
+        tenantId: active.tenant.id,
+        uuid: crypto.randomUUID(),
+        clientId,
+        token,
+        label: String(input.label ?? '')
+          .trim()
+          .slice(0, 100),
+        expiresAt:
+          days > 0
+            ? new Date(Date.now() + days * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+            : '',
+        revokedAt: '',
+        lastUsedAt: '',
+        createdBy: CURRENT_USER,
+        createdAt: nowStamp(),
+      };
+
+      portalAccesses.push(access);
+      record(
+        active.tenant.id,
+        'portal.access_issued',
+        { clientId, expiresAt: access.expiresAt },
+        'portal_access',
+        access.id
+      );
+
+      const issued: PortalAccessIssued = {
+        access: presentPortalAccess(access),
+        token,
+        url: `${window.location.origin}/?fos_portal=${token}`,
+      };
+
+      return ok(issued, 201);
+    }
+  }
+
+  const revokeMatch = /^\/portal-access\/(\d+)$/.exec(path);
+
+  if (revokeMatch && method === 'DELETE') {
+    if (!active) {
+      return workspaceRequired();
+    }
+
+    const access = portalAccesses.find(
+      (item) => item.tenantId === active.tenant.id && item.id === Number(revokeMatch[1])
+    );
+
+    if (!access) {
+      return fail('portal_access_not_found', 'That portal link could not be found.', 404);
+    }
+
+    if (access.revokedAt === '') {
+      access.revokedAt = nowStamp();
+      record(
+        active.tenant.id,
+        'portal.access_revoked',
+        { clientId: access.clientId },
+        'portal_access',
+        access.id
+      );
+    }
+
+    return ok(presentPortalAccess(access));
   }
 
   const clientMatch = /^\/clients\/(\d+)$/.exec(path);
@@ -5297,6 +5589,94 @@ async function handle(url: URL, request: Request): Promise<Response> {
     }
 
     return ok(presentCheck(check), 201);
+  }
+
+  if (path.startsWith('/portal/')) {
+    const access = portalAccessFor(request.headers.get('X-FashionOS-Portal') ?? '');
+
+    if (!access) {
+      return portalLocked();
+    }
+
+    if (path === '/portal/session' && method === 'GET') {
+      const session = portalSession(access);
+
+      return session ? ok(session) : portalLocked();
+    }
+
+    if (path === '/portal/orders' && method === 'GET') {
+      const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+      const perPage = Math.min(50, Math.max(1, Number(url.searchParams.get('per_page') ?? 20)));
+      const visible = orders
+        .filter(
+          (order) =>
+            order.tenantId === access.tenantId &&
+            order.clientId === access.clientId &&
+            order.status !== 'draft'
+        )
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+      const start = (page - 1) * perPage;
+
+      return ok({
+        orders: visible.slice(start, start + perPage).map(portalOrder),
+        page,
+        perPage,
+        total: visible.length,
+        totalPages: visible.length > 0 ? Math.ceil(visible.length / perPage) : 0,
+      });
+    }
+
+    const portalOrderMatch = /^\/portal\/orders\/(\d+)$/.exec(path);
+
+    if (portalOrderMatch && method === 'GET') {
+      const order = orderFor(access.tenantId, Number(portalOrderMatch[1]));
+
+      if (!order || order.clientId !== access.clientId || order.status === 'draft') {
+        return fail('portal_order_not_found', 'That order could not be found.', 404);
+      }
+
+      return ok(portalOrder(order));
+    }
+
+    if (path === '/portal/invoices' && method === 'GET') {
+      const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+      const perPage = Math.min(50, Math.max(1, Number(url.searchParams.get('per_page') ?? 20)));
+      const visible = invoices
+        .filter(
+          (invoice) =>
+            invoice.tenantId === access.tenantId &&
+            invoice.clientId === access.clientId &&
+            ['issued', 'partially_paid', 'paid'].includes(invoiceStatus(invoice))
+        )
+        .sort((left, right) => right.issueDate.localeCompare(left.issueDate));
+      const start = (page - 1) * perPage;
+
+      return ok({
+        invoices: visible.slice(start, start + perPage).map(portalInvoice),
+        page,
+        perPage,
+        total: visible.length,
+        totalPages: visible.length > 0 ? Math.ceil(visible.length / perPage) : 0,
+      });
+    }
+
+    const portalInvoiceMatch = /^\/portal\/invoices\/(\d+)$/.exec(path);
+
+    if (portalInvoiceMatch && method === 'GET') {
+      const invoice = invoiceFor(access.tenantId, Number(portalInvoiceMatch[1]));
+
+      if (
+        !invoice ||
+        invoice.clientId !== access.clientId ||
+        !['issued', 'partially_paid', 'paid'].includes(invoiceStatus(invoice))
+      ) {
+        return fail('portal_invoice_not_found', 'That invoice could not be found.', 404);
+      }
+
+      return ok(portalInvoice(invoice));
+    }
+
+    return fail('not_found', 'That portal endpoint does not exist.', 404);
   }
 
   if (path === '/invoices' && method === 'GET') {

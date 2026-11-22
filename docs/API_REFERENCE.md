@@ -455,6 +455,51 @@ Dates use `YYYY-MM-DD`; timestamps use `YYYY-MM-DD HH:MM:SS` in UTC.
 | `expense_void` | 409 | Editing a void expense |
 | `expense_create_failed` / `expense_update_failed` | 500 | Write failure; the transaction is rolled back |
 
+## Implemented in Phase 6
+
+Portal routes are the one part of the namespace that does not authenticate a WordPress user. The token from the link the studio issued is the credential.
+
+```http
+X-FashionOS-Portal: 64-hex-character-token
+```
+
+Portal routes are read-only, so they need no nonce. Every read is scoped to the one workspace and one customer the token resolves to. A missing, unknown, revoked or expired token, an inactive workspace and a missing or archived customer all return the same `401 portal_access_invalid`.
+
+Every portal response, success or error, carries `Cache-Control: private, no-store, max-age=0` and `X-Robots-Tag: noindex, nofollow`, because all requests share one URL and only the header tells one customer's response from another's. The portal page is rendered with the same no-cache treatment plus `Referrer-Policy: no-referrer`, so the token is not stored by a shared cache, indexed, or forwarded in a `Referer` header before the application strips it from the address bar.
+
+| Method | Route | Credential | Notes |
+|---|---|---|---|
+| `GET` | `/portal/session` | portal token | Studio branding, the customer's own profile, link expiry and the summary counts (`openOrders`, `openInvoices`, `outstanding`) |
+| `GET` | `/portal/orders` | portal token | `?page=`, `?per_page=` (default 20, max 50); excludes draft orders |
+| `GET` | `/portal/orders/{id}` | portal token | Order with each garment's name, category, quantity and status |
+| `GET` | `/portal/invoices` | portal token | `?page=`, `?per_page=`; only `issued`, `partially_paid` and `paid` |
+| `GET` | `/portal/invoices/{id}` | portal token | Invoice with lines, totals, balance and verified payments only |
+
+Sharing and revoking those links are staff routes inside the selected workspace:
+
+| Method | Route | Permission | Notes |
+|---|---|---|---|
+| `GET` | `/clients/{id}/portal-access` | `clients.manage` | Issued links with label, expiry, revocation and last use; never the token |
+| `POST` | `/clients/{id}/portal-access` | `clients.manage` | Body `{ label?, expiresInDays? }` (0–365, 0 means no expiry); returns the new link's `url` and `token` once, with `201` |
+| `DELETE` | `/portal-access/{id}` | `clients.manage` | Revokes the link; revoking twice is harmless |
+
+The issued URL is `home_url( '/' )` with `?fos_portal=<token>` appended, filtered through `fashionos_portal_url`. The portal renders wherever the `[fashionos_portal]` shortcode is placed.
+
+Portal responses deliberately omit client ids, order notes, order timelines, staff names, draft and void invoices, pending payments and all expense data. A record outside that set answers `404` rather than `403`, so the portal does not confirm that someone else's record exists.
+
+### Phase 6 error codes
+
+| Code | Status | Meaning |
+|---|---|---|
+| `portal_access_invalid` | 401 | Missing, unknown, revoked or expired token, inactive workspace, or missing/archived customer |
+| `portal_order_not_found` | 404 | No such order for this customer, or it is still a draft |
+| `portal_invoice_not_found` | 404 | No such invoice for this customer, or it is a draft or void |
+| `portal_access_not_found` | 404 | No such link in the active workspace |
+| `portal_client_archived` | 409 | Sharing a link for an archived customer |
+| `portal_access_expiry_invalid` | 422 | `expiresInDays` outside 0–365 |
+| `portal_access_label_too_long` | 422 | Label over 100 characters |
+| `portal_access_create_failed` / `portal_access_update_failed` | 500 | Write failure; the transaction is rolled back |
+
 ## Route requirements
 
 Every route must define:

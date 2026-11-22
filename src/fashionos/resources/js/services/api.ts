@@ -44,6 +44,15 @@ import type {
   PaymentInput,
   PaymentListResponse,
   PlatformResponse,
+  PortalAccess,
+  PortalAccessInput,
+  PortalAccessIssued,
+  PortalAccessList,
+  PortalInvoice,
+  PortalInvoicesResponse,
+  PortalOrder,
+  PortalOrdersResponse,
+  PortalSession,
   ProductionDashboard,
   ProductionJob,
   ProductionJobInput,
@@ -68,6 +77,12 @@ import type {
  * signed-in user's membership; it is a selector, never proof of access.
  */
 export const WORKSPACE_HEADER = 'X-FashionOS-Workspace';
+
+/**
+ * Header carrying a customer portal token. The token is the customer's only
+ * credential and is never attached to studio requests.
+ */
+export const PORTAL_HEADER = 'X-FashionOS-Portal';
 
 /**
  * Error thrown for failed API requests. `code` comes from the server envelope
@@ -97,30 +112,29 @@ export type ApiClient = ReturnType<typeof createApiClient>;
  * Uses WordPress session cookies plus the REST nonce. The nonce protects
  * against CSRF; authorization is always enforced by the server.
  */
-export function createApiClient(
-  config: Pick<FashionOSConfig, 'restUrl' | 'nonce'> & { workspace?: string | null },
-  fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)
+/**
+ * Build a request function for one REST base URL.
+ *
+ * The studio client and the portal client differ only in the headers they
+ * attach, so envelope handling, JSON parsing and error mapping live here once.
+ */
+function createRequest(
+  restUrl: string,
+  headersFor: () => Record<string, string>,
+  fetchImpl: typeof fetch
 ) {
-  let workspace = config.workspace ?? null;
-
-  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const url = `${config.restUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
-
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-WP-Nonce': config.nonce,
-      ...((init.headers as Record<string, string> | undefined) ?? {}),
-    };
-
-    if (workspace) {
-      headers[WORKSPACE_HEADER] = workspace;
-    }
+  return async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const url = `${restUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
 
     const response = await fetchImpl(url, {
       ...init,
       credentials: 'same-origin',
-      headers,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...headersFor(),
+        ...((init.headers as Record<string, string> | undefined) ?? {}),
+      },
     });
 
     let payload: ApiEnvelope<T> | null = null;
@@ -143,35 +157,51 @@ export function createApiClient(
     }
 
     return payload.data;
-  }
+  };
+}
+
+/**
+ * Build a query string from optional filters, dropping blanks and page 1.
+ */
+function filters(params: Record<string, string | number | undefined | null>): string {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '' && !(key === 'page' && value === 1)) {
+      query.set(key, String(value));
+    }
+  });
+
+  const suffix = query.toString();
+
+  return suffix ? `?${suffix}` : '';
+}
+
+export function createApiClient(
+  config: Pick<FashionOSConfig, 'restUrl' | 'nonce'> & { workspace?: string | null },
+  fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)
+) {
+  let workspace = config.workspace ?? null;
+
+  const request = createRequest(
+    config.restUrl,
+    () => {
+      const headers: Record<string, string> = { 'X-WP-Nonce': config.nonce };
+
+      if (workspace) {
+        headers[WORKSPACE_HEADER] = workspace;
+      }
+
+      return headers;
+    },
+    fetchImpl
+  );
 
   function mutate<T>(path: string, method: string, body?: unknown): Promise<T> {
     return request<T>(path, {
       method,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  }
-
-  /**
-   * Build a query string from optional filters, dropping blanks and page 1.
-   */
-  function filters(params: Record<string, string | number | undefined | null>): string {
-    const query = new URLSearchParams();
-
-    Object.entries(params).forEach(([key, value]) => {
-      if (
-        value !== undefined &&
-        value !== null &&
-        value !== '' &&
-        !(key === 'page' && value === 1)
-      ) {
-        query.set(key, String(value));
-      }
-    });
-
-    const suffix = query.toString();
-
-    return suffix ? `?${suffix}` : '';
   }
 
   return {
@@ -515,6 +545,49 @@ export function createApiClient(
     updateExpense: (expenseId: number, input: ExpenseInput) =>
       mutate<Expense>(`expenses/${expenseId}`, 'PATCH', input),
 
+    /** Portal links a customer can use to see their own orders and invoices. */
+    portalAccess: (clientId: number) =>
+      request<PortalAccessList>(`clients/${clientId}/portal-access`),
+    createPortalAccess: (clientId: number, input: PortalAccessInput) =>
+      mutate<PortalAccessIssued>(`clients/${clientId}/portal-access`, 'POST', input),
+    revokePortalAccess: (accessId: number) =>
+      mutate<PortalAccess>(`portal-access/${accessId}`, 'DELETE'),
+
     financeSummary: () => request<FinanceSummary>('finance/summary'),
   };
 }
+
+/**
+ * Build the customer portal client.
+ *
+ * The portal has no WordPress session and no nonce: the token from the issued
+ * link is the credential, sent as a header so it stays out of request URLs and
+ * server logs. Every route it calls is read-only.
+ */
+export function createPortalClient(
+  config: { restUrl: string; token: string },
+  fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)
+) {
+  const request = createRequest(
+    config.restUrl,
+    () => ({ [PORTAL_HEADER]: config.token }),
+    fetchImpl
+  );
+
+  return {
+    request,
+    session: () => request<PortalSession>('portal/session'),
+    orders: (params: { page?: number; perPage?: number } = {}) =>
+      request<PortalOrdersResponse>(
+        `portal/orders${filters({ page: params.page, per_page: params.perPage })}`
+      ),
+    order: (orderId: number) => request<PortalOrder>(`portal/orders/${orderId}`),
+    invoices: (params: { page?: number; perPage?: number } = {}) =>
+      request<PortalInvoicesResponse>(
+        `portal/invoices${filters({ page: params.page, per_page: params.perPage })}`
+      ),
+    invoice: (invoiceId: number) => request<PortalInvoice>(`portal/invoices/${invoiceId}`),
+  };
+}
+
+export type PortalClient = ReturnType<typeof createPortalClient>;

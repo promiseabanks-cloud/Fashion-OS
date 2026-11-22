@@ -40,6 +40,27 @@ final class Response {
 	}
 
 	/**
+	 * Build the error envelope from a WordPress error.
+	 *
+	 * Shared by the controller base and the portal routes so both answer with
+	 * the same shape, including the optional field-level details.
+	 *
+	 * @param \WP_Error $error Error to send.
+	 */
+	public static function from_error( \WP_Error $error ): \WP_REST_Response {
+		$data    = $error->get_error_data();
+		$data    = is_array( $data ) ? $data : array();
+		$details = isset( $data['details'] ) && is_array( $data['details'] ) ? $data['details'] : array();
+
+		return self::error(
+			(string) $error->get_error_code(),
+			(string) $error->get_error_message(),
+			(int) ( $data['status'] ?? 400 ),
+			$details
+		);
+	}
+
+	/**
 	 * Error response.
 	 *
 	 * @param string               $code    Stable machine-readable error code.

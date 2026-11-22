@@ -8,6 +8,22 @@ This changelog records **implementation history**. Approved changes to the found
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-22
+
+### Added
+
+- **Phase 6: Client portal.**
+  - Migration `0006`: `fos_portal_access`, storing only a SHA-256 hash of each portal token, with optional expiry, revocation and last-use timestamps. Unique `token_hash` lets a request carrying just its token identify its workspace.
+  - Customer access without WordPress accounts: a staff-issued link carries a 256-bit token; the resolver refuses unknown, revoked and expired tokens, an inactive workspace and a missing or archived customer with one `401 portal_access_invalid`.
+  - Customer-scoped reads: `GET /portal/session`, `/portal/orders`, `/portal/orders/{id}`, `/portal/invoices`, `/portal/invoices/{id}`, scoped by the customer id in the token rather than by anything the caller sends.
+  - Customer-visible data only: confirmed orders and per-garment statuses, issued/partially paid/paid invoices with lines, totals and balance, and verified payments. Draft orders, draft and void invoices, pending payments, order notes and timelines, staff names and expenses never reach the portal.
+  - Portal `amountPaid` and `balance` are recomputed from the verified payment ledger, matching the studio's figures.
+  - Staff sharing panel on the customer record: issue a link with a label and lifetime (up to 365 days, or none), see its status and last use, and revoke it. The link is displayed once because only its hash is stored.
+  - Tenant-branded portal application at `[fashionos_portal]`, reachable by customers who are not signed in. The token is read once, stripped from the address bar and sent as `X-FashionOS-Portal`; portal pages are sent no-cache and no-index.
+  - Audit entries `portal.access_issued` and `portal.access_revoked`; revocation keeps the row.
+  - WordPress test-library suite in `tests/php/PortalTest.php` and Vitest coverage for the portal API client (written; the PHP suite is not yet executed — see `docs/PHASE_6_PLAN.md`).
+  - Documentation: `docs/PHASE_6_PLAN.md`; API reference, schema, README and plugin readme updated.
+
 ## [0.6.0] - 2026-11-20
 
 ### Added
